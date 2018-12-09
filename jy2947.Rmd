@@ -1,0 +1,21 @@
+---
+title: "jy2947"
+author: "Jiawei Ye"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Literature review
+[This]<https://onlinelibrary.wiley.com/doi/full/10.1002/ijc.29210> article shows that cancer incidence and mortality rates differ in developing countries and developed countries. Mortality rates also differ for cancers at different sites. But we only have data for all cancer combined. 
+
+[This]<https://jamanetwork.com/journals/jama/fullarticle/2598772> article shows age-standardized mortality rate for neoplasms differs across counties in 2014. This article's model is using covariates pretty similar to what our dataset has.
+
+*age-standardized mortality rate: The age-standardized mortality rate is a weighted average of the age-specific mortality rates per
+100,000 persons, where the weights are the proportions of persons in the corresponding age
+groups of the WHO standard population. WHO, [link]<https://www.who.int/whosis/whostat2006AgeStandardizedDeathRates.pdf>
+
+[This]<https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5376950/> article is saying mortality differs aross races. 
+
