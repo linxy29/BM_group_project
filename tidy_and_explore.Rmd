@@ -1,0 +1,16 @@
+---
+title: "As5697_tidying_and_exploratory"
+author: "Apoorva Srinivasan"
+date: "12/10/2018"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+```
+
+```{r}
+cancer_reg = read_csv("./data/Cancer_Registry.csv")
+```
+
