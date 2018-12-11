@@ -134,6 +134,8 @@ knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
 
 ##subset
 
+(not considering interaction)
+
 ```{r}
 multi.fit = lm(target_death_rate ~ ., data = cancer_reg)
 summary(multi.fit)
