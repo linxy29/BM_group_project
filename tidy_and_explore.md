@@ -312,7 +312,7 @@ hist(cancer_reg$prevalence) #right skewed
 ##they are all almost normally distributed
 ```
 
-### descriptive statistics
+### descriptive statistics: cont variable
 
 ``` r
 cont_var = dplyr::select(cancer_reg, target_death_rate, everything(), -c(study_per_cap))
@@ -328,6 +328,24 @@ knitr::kable(summary(cont_var), caption = "descriptive statistics for continuous
 |     | 3rd Qu.:195.2       | 3rd Qu.: 480.9  | 3rd Qu.: 52492 | 3rd Qu.:20.40    | 3rd Qu.:42.50     | 3rd Qu.:45.30       | 3rd Qu.:2.6300       | 3rd Qu.:56.40    | 3rd Qu.:22.70     |  3rd Qu.:40.7 | 3rd Qu.: 8.200       | 3rd Qu.:39.65   | 3rd Qu.:16.10          | 3rd Qu.:60.30         | 3rd Qu.: 9.700          | 3rd Qu.:72.10          | 3rd Qu.:47.7             | 3rd Qu.:41.55         | 3rd Qu.:23.10                | 3rd Qu.: 95.45 | 3rd Qu.:55.40            | 3rd Qu.: 6.494 | 3rd Qu.:0.002681 | 3rd Qu.:0.0064874 | 3rd Qu.:16.974  |
 |     | Max. :362.8         | Max. :1206.9    |  Max. :125635  | Max. :47.40      | Max. :64.70       | Max. :65.70         | Max. :3.9700         | Max. :72.50      | Max. :64.10       |   Max. :72.5  | Max. :51.800         | Max. :54.80     | Max. :42.20            | Max. :80.10           | Max. :29.400            | Max. :92.30            | Max. :70.7               | Max. :65.10           | Max. :46.60                  |  Max. :100.00  | Max. :78.08              |  Max. :21.326  |  Max. :0.005136  |  Max. :2.3675123  | Max. :86.066    |
 |     | NA                  | NA              |       NA       | NA               | NA                | NA                  | NA                   | NA               | NA                |       NA      | NA                   | NA              | NA                     | NA's :152             | NA                      | NA                     | NA                       | NA                    | NA                           |       NA       | NA                       |       NA       |        NA        |         NA        | NA              |
+
+descriptive stat: cat variable
+------------------------------
+
+``` r
+cancer_reg %>%
+group_by(study_per_cap) %>%
+count() %>%
+ungroup() %>%
+mutate(prop = n / sum(n)) %>%
+knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
+```
+
+| study\_per\_cap |     n|  prop|
+|:----------------|-----:|-----:|
+| high            |   354|  0.12|
+| none            |  1931|  0.63|
+| very high       |   762|  0.25|
 
 Choose varibles from coverage, education, employment based on best fit.
 
@@ -402,7 +420,7 @@ abline(reg1,lwd = 2,col = 2)
     ## Warning in abline(reg1, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-1.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-1.png)
 
 ``` r
 plot(cancer_reg$pct_emp_priv_coverage, cancer_reg$target_death_rate)
@@ -412,7 +430,7 @@ abline(reg2,lwd = 2,col = 2)
     ## Warning in abline(reg2, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-2.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-2.png)
 
 ``` r
 plot(cancer_reg$pct_public_coverage, cancer_reg$target_death_rate)
@@ -422,7 +440,7 @@ abline(reg3,lwd = 2,col = 2)
     ## Warning in abline(reg3, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-3.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-3.png)
 
 ``` r
 plot(cancer_reg$pct_public_coverage_alone, cancer_reg$target_death_rate)
@@ -432,4 +450,4 @@ abline(reg4,lwd = 2,col = 2)
     ## Warning in abline(reg4, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-4.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-4.png)

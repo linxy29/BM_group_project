@@ -113,13 +113,23 @@ hist(cancer_reg$prevalence) #right skewed
 
 
 
-###descriptive statistics
+###descriptive statistics: cont variable
 
 ```{r}
 cont_var = dplyr::select(cancer_reg, target_death_rate, everything(), -c(study_per_cap))
 knitr::kable(summary(cont_var), caption = "descriptive statistics for continuous variables")
 ```
 
+
+##descriptive stat: cat variable
+```{r}
+cancer_reg %>%
+group_by(study_per_cap) %>%
+count() %>%
+ungroup() %>%
+mutate(prop = n / sum(n)) %>%
+knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
+```
 
 
 Choose varibles from coverage, education, employment based on best fit.
