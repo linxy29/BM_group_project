@@ -18,7 +18,7 @@ library(tidyverse)
 cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
   select(target_death_rate, everything()) %>%
-  separate(geography, into = c("county", "state"), sep = ",") %>% 
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
   mutate(
     avg_deaths_per_year = as.numeric(avg_deaths_per_year),
     med_income = as.numeric(med_income),
@@ -26,6 +26,8 @@ cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
     county = str_replace(county, " ", ""),
     log_med_income = log(med_income))
 ```
+
+### Explore correlations
 
 ```{r}
 # corrplot::corrplot(cancer_reg)
@@ -48,3 +50,15 @@ cancer_reg %>%
 1) med_income, poverty_percent. Keep *poverty_percent*, stronger linear rel with explanatory variable
 
 2) Edudation variables
+
+```{r}
+tobacco_2013 = read_csv(file = "./BRFD_tobacco_2010_present.csv") %>% 
+  janitor::clean_names() %>% 
+  filter(response == "Never", year == "2013") %>% 
+  dplyr::select(year = "year", st = "location_desc", response, percent_never = "data_value") %>%
+  mutate(
+    percent_smoke = as.numeric(100 - percent_never),
+    year = as.numeric(year)) %>% 
+  dplyr::select(st, percent_smoke)
+```
+
