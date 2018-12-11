@@ -130,11 +130,16 @@ multi.fit = lm(target_death_rate ~ ., data = cancer_reg)
 summary(multi.fit)
 
 
-reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg)
-reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg)
-reg3 = lm(target_death_rate~pct_public_coverage, data = cancer_reg)
-reg4 = lm(target_death_rate~pct_public_coverage_alone , data = cancer_reg)
+reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg) %>%
+  summary()
+reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg) %>%
+  summary()
+reg3 = lm(target_death_rate~pct_public_coverage, data = cancer_reg) %>%
+  summary()
+reg4 = lm(target_death_rate~pct_public_coverage_alone , data = cancer_reg) %>%
+  summary()
 
+##I'd pick public_coverage alone since it has max r^2
 
 plot(cancer_reg$pct_private_coverage, cancer_reg$target_death_rate)
 abline(reg1,lwd = 2,col = 2)

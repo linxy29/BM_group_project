@@ -384,15 +384,23 @@ summary(multi.fit)
     ## F-statistic: 409.2 on 26 and 2868 DF,  p-value: < 2.2e-16
 
 ``` r
-reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg)
-reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg)
-reg3 = lm(target_death_rate~pct_public_coverage, data = cancer_reg)
-reg4 = lm(target_death_rate~pct_public_coverage_alone , data = cancer_reg)
+reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg) %>%
+  summary()
+reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg) %>%
+  summary()
+reg3 = lm(target_death_rate~pct_public_coverage, data = cancer_reg) %>%
+  summary()
+reg4 = lm(target_death_rate~pct_public_coverage_alone , data = cancer_reg) %>%
+  summary()
 
+##I'd pick public_coverage alone since it has max r^2
 
 plot(cancer_reg$pct_private_coverage, cancer_reg$target_death_rate)
 abline(reg1,lwd = 2,col = 2)
 ```
+
+    ## Warning in abline(reg1, lwd = 2, col = 2): only using the first two of 8
+    ## regression coefficients
 
 ![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-1.png)
 
@@ -401,6 +409,9 @@ plot(cancer_reg$pct_emp_priv_coverage, cancer_reg$target_death_rate)
 abline(reg2,lwd = 2,col = 2)
 ```
 
+    ## Warning in abline(reg2, lwd = 2, col = 2): only using the first two of 8
+    ## regression coefficients
+
 ![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-2.png)
 
 ``` r
@@ -408,11 +419,17 @@ plot(cancer_reg$pct_public_coverage, cancer_reg$target_death_rate)
 abline(reg3,lwd = 2,col = 2)
 ```
 
+    ## Warning in abline(reg3, lwd = 2, col = 2): only using the first two of 8
+    ## regression coefficients
+
 ![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-3.png)
 
 ``` r
 plot(cancer_reg$pct_public_coverage_alone, cancer_reg$target_death_rate)
 abline(reg4,lwd = 2,col = 2)
 ```
+
+    ## Warning in abline(reg4, lwd = 2, col = 2): only using the first two of 8
+    ## regression coefficients
 
 ![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-6-4.png)
