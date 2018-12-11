@@ -129,7 +129,7 @@ percentage_missing %>% data.frame()
 
 cancer_reg = cancer_reg %>% select(-pct_some_col18_24, -pct_private_coverage_alone, -binned_inc, -median_age) 
 
-  ##removed binned_inc since we already have median income and median age since it is avg of median age female and male. so we'll build model with those those factors instead. ##age+gender
+  ##removed binned_inc since we already have median income and median age since it is avg of median age female and male. so we'll build model with those those factors instead. 
 
 
 ##percentage missing for pct_employed16_over is  ~5%, checking to see if its correlated with the outcome 
@@ -147,7 +147,7 @@ cancer_reg = cancer_reg %>% select(-county, -state) %>%
                          ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
                                 ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
   mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
-  select(-pct_black, -pct_asian, -pct_other_race) ##since the number of whites are a lot higher, putting the other minorities under a single variable.
+  select(-pct_black, -pct_asian, -pct_other_race) ##since the number of white people are a lot higher, putting the other minorities under a single variable.
 
   ##Since count itself can be misleading, taking proportion will give us a better model. 
  ##removed state and county variables since we're building a predictive model, area doesn't really matter.
@@ -347,7 +347,7 @@ knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
 | none            |  1931|  0.63|
 | very high       |   762|  0.25|
 
-Choose varibles from coverage, education, employment based on best fit.
+Choose varibles from health coverage, education, employment based on best fit.
 
 ### coverage
 
