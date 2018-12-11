@@ -7,7 +7,11 @@ output: github_document
 
 ```{r}
 library(tidyverse)
-
+library(patchwork)
+library("leaps")
+library(faraway)
+library(caret)
+library(broom)
 ```
 
 ###Data loading
@@ -59,7 +63,9 @@ cancer_reg = cancer_reg %>% select(-county, -state) %>%
         as.factor(ifelse(study_per_cap == 0, "none", 
                          ifelse(study_per_cap < quantile(study_per_cap, .25), "low",
                          ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
-                                ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high"))))))
+                                ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
+  mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
+  select(-pct_black, -pct_asian, -pct_other_race) ##since the number of whites are a lot higher, putting the other minorities under a single variable.
 
   ##Since count itself can be misleading, taking proportion will give us a better model. 
  ##removed state and county variables since we're building a predictive model, area doesn't really matter.
@@ -72,20 +78,72 @@ Now we're left with `r ncol(cancer_reg)` variables
 
 ###exploratory analysis
 
-###coverage
+
 ```{r}
-par(mfrow = c(2,2))
+hist(cancer_reg$target_death_rate) #outcome is normally distributed
 hist(cancer_reg$pct_private_coverage)
 hist(cancer_reg$pct_public_coverage)
 hist(cancer_reg$pct_emp_priv_coverage)
 hist(cancer_reg$pct_public_coverage_alone)
+hist(cancer_reg$incidence_rate) ##right skewed
+hist(cancer_reg$med_income) #somewhat right skewed-mostly ok
+hist(cancer_reg$poverty_percent)
+hist(cancer_reg$median_age_male)
+hist(cancer_reg$median_age_female)
+hist(cancer_reg$avg_household_size) ##left skewed
+hist(cancer_reg$percent_married)
+hist(cancer_reg$pct_no_hs18_24) #somehwat right
+hist(cancer_reg$pct_hs18_24)
+hist(cancer_reg$pct_bach_deg18_24)#right skewed
+hist(cancer_reg$pct_hs25_over)
+hist(cancer_reg$pct_bach_deg25_over)
+hist(cancer_reg$pct_employed16_over)
+hist(cancer_reg$pct_unemployed16_over)
+hist(cancer_reg$pct_white) #left  skewed
+hist(cancer_reg$pct_non_white) #right skewed
+hist(cancer_reg$pct_married_households)
+hist(cancer_reg$birth_rate)
+hist(cancer_reg$mortality)
+hist(cancer_reg$prevalence) #right skewed
 
 ##they are all almost normally distributed
 ```
 
 
-```{r}
 
+
+
+###descriptive statistics
+
+```{r}
+cont_var = dplyr::select(cancer_reg, target_death_rate, everything(), -c(study_per_cap))
+knitr::kable(summary(cont_var), caption = "descriptive statistics for continuous variables")
 ```
 
+
+
+Choose varibles from coverage, education, employment based on best fit.
+
+###coverage
+```{r}
+multi.fit = lm(target_death_rate ~ ., data = cancer_reg)
+summary(multi.fit)
+
+
+reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg)
+reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg)
+reg3 = lm(target_death_rate~pct_public_coverage, data = cancer_reg)
+reg4 = lm(target_death_rate~pct_public_coverage_alone , data = cancer_reg)
+
+
+plot(cancer_reg$pct_private_coverage, cancer_reg$target_death_rate)
+abline(reg1,lwd = 2,col = 2)
+
+plot(cancer_reg$pct_emp_priv_coverage, cancer_reg$target_death_rate)
+abline(reg2,lwd = 2,col = 2)
+plot(cancer_reg$pct_public_coverage, cancer_reg$target_death_rate)
+abline(reg3,lwd = 2,col = 2)
+plot(cancer_reg$pct_public_coverage_alone, cancer_reg$target_death_rate)
+abline(reg4,lwd = 2,col = 2)
+```
 
