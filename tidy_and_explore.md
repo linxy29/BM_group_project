@@ -125,7 +125,7 @@ percentage_missing %>% data.frame()
     ## pct_married_households     0.00000000
 
 ``` r
-##getting rid of variables with missing values.
+##getting rid of variables with missing values more than 10%
 
 cancer_reg = cancer_reg %>% select(-pct_some_col18_24, -pct_private_coverage_alone, -binned_inc, -median_age) 
 
@@ -147,9 +147,10 @@ cancer_reg = cancer_reg %>% select(-county, -state) %>%
                          ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
                                 ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
   mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
-  select(-pct_black, -pct_asian, -pct_other_race) ##since the number of white people are a lot higher, putting the other minorities under a single variable.
+  select(-pct_black, -pct_asian, -pct_other_race)
+##since the number of white people are a lot higher, putting the other minorities under a single variable.
 
-  ##Since count itself can be misleading, taking proportion will give us a better model. 
+  ##Since count itself can be misleading, taking proportion will give us a better model. added mortality and prevalence instead of avg count and avg death
  ##removed state and county variables since we're building a predictive model, area doesn't really matter.
  ##changed study_per_cap to factor variable
 ```
