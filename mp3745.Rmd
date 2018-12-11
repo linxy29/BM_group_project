@@ -1,0 +1,230 @@
+---
+title: "Mp3745"
+author: "Matthew Parker"
+date: "12/7/2018"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(patchwork)
+library("leaps")
+library(faraway)
+library(caret)
+library(broom)
+```
+
+###Data loading
+```{r}
+cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
+  janitor::clean_names() %>%
+  select(target_death_rate, everything()) %>%
+  separate(geography, into = c("county", "state"), sep = ",")
+```
+
+There are in total `r ncol(cancer_reg)` variables  and `r nrow(cancer_reg)`observations in the dataset. 
+
+
+Our outcome of interest is __target_death_rate__
+
+###dealing with missing data
+```{r}
+#missing data
+
+#colSums(is.na(cancer_reg))
+
+##pct_some_col18_24 has 2285 NAs, pct_employed_coverage_alone has 609 NA, pct_employed16_over has 152 NAs
+
+
+missing_value = sapply(cancer_reg[1:34], function(x) sum(length(which(is.na(x)))))
+
+
+# Percentage of missing value
+percentage_missing = sapply(cancer_reg[1:34], function(x) sum(length(which(is.na(x)))) / nrow(cancer_reg))
+percentage_missing %>% data.frame()
+
+##getting rid of variables with missing values.
+
+cancer_reg = cancer_reg %>% select(-pct_some_col18_24, -pct_private_coverage_alone, -binned_inc, -median_age) 
+
+  ##removed binned_inc since we already have median income and median age since it is avg of median age female and male. so we'll build model with those those factors instead. 
+
+
+##percentage missing for pct_employed16_over is  ~5%, checking to see if its correlated with the outcome 
+reg = lm(target_death_rate~pct_employed16_over, data = cancer_reg) %>%
+  summary()
+
+##Since the p-value is small, we will retain pct_employed16_over
+
+cancer_reg = cancer_reg %>% select(-county, -state) %>%
+  mutate(mortality = avg_deaths_per_year/pop_est2015, prevalence = avg_ann_count/pop_est2015) %>%
+  select(-pop_est2015, -avg_ann_count, -avg_deaths_per_year) %>%
+ mutate(study_per_cap =  
+        as.factor(ifelse(study_per_cap == 0, "none", 
+                         ifelse(study_per_cap < quantile(study_per_cap, .25), "low",
+                         ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
+                                ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
+  mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
+  select(-pct_black, -pct_asian, -pct_other_race) ##since the number of white people are a lot higher, putting the other minorities under a single variable.
+
+  ##Since count itself can be misleading, taking proportion will give us a better model. 
+ ##removed state and county variables since we're building a predictive model, area doesn't really matter.
+ ##changed study_per_cap to factor variable
+  
+
+```
+
+
+
+###exploratory analysis
+
+
+```{r}
+hist(cancer_reg$target_death_rate) #outcome is normally distributed
+hist(cancer_reg$pct_private_coverage)
+hist(cancer_reg$pct_public_coverage)
+hist(cancer_reg$pct_emp_priv_coverage)
+hist(cancer_reg$pct_public_coverage_alone)
+hist(cancer_reg$incidence_rate) ##right skewed
+hist(cancer_reg$med_income) #somewhat right skewed-mostly ok
+hist(cancer_reg$poverty_percent)
+hist(cancer_reg$median_age_male)
+hist(cancer_reg$median_age_female)
+hist(cancer_reg$avg_household_size) ##left skewed
+hist(cancer_reg$percent_married)
+hist(cancer_reg$pct_no_hs18_24) #somehwat right
+hist(cancer_reg$pct_hs18_24)
+hist(cancer_reg$pct_bach_deg18_24)#right skewed
+hist(cancer_reg$pct_hs25_over)
+hist(cancer_reg$pct_bach_deg25_over)
+hist(cancer_reg$pct_employed16_over)
+hist(cancer_reg$pct_unemployed16_over)
+hist(cancer_reg$pct_white) #left  skewed
+hist(cancer_reg$pct_non_white) #right skewed
+hist(cancer_reg$pct_married_households)
+hist(cancer_reg$birth_rate)
+hist(cancer_reg$mortality)
+hist(cancer_reg$prevalence) #right skewed
+
+##they are all almost normally distributed
+```
+
+
+
+
+
+###descriptive statistics: cont variable
+
+```{r}
+cont_var = dplyr::select(cancer_reg, target_death_rate, everything(), -c(study_per_cap))
+knitr::kable(summary(cont_var), caption = "descriptive statistics for continuous variables")
+```
+
+
+##descriptive stat: cat variable
+```{r}
+cancer_reg %>%
+group_by(study_per_cap) %>%
+count() %>%
+ungroup() %>%
+mutate(prop = n / sum(n)) %>%
+knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
+```
+
+
+##subset
+
+(not considering interaction)
+
+```{r}
+multi.fit = lm(target_death_rate ~ ., data = cancer_reg)
+summary(multi.fit)
+
+cancer_subset = cancer_reg %>%
+  select(target_death_rate, incidence_rate, med_income, median_age_male, median_age_female, pct_hs18_24, pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_public_coverage_alone, birth_rate, mortality, prevalence, pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage )
+```
+
+
+###coverage
+```{r}
+
+
+
+reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg) %>%
+  summary()
+reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg) %>%
+  summary()
+reg3 = lm(target_death_rate~pct_public_coverage, data = cancer_reg) %>%
+  summary()
+reg4 = lm(target_death_rate~pct_public_coverage_alone , data = cancer_reg) %>%
+  summary()
+
+##I'd pick public_coverage alone since it has max r^2
+
+plot(cancer_reg$pct_private_coverage, cancer_reg$target_death_rate)
+abline(reg1,lwd = 2,col = 2)
+
+plot(cancer_reg$pct_emp_priv_coverage, cancer_reg$target_death_rate)
+abline(reg2,lwd = 2,col = 2)
+plot(cancer_reg$pct_public_coverage, cancer_reg$target_death_rate)
+abline(reg3,lwd = 2,col = 2)
+plot(cancer_reg$pct_public_coverage_alone, cancer_reg$target_death_rate)
+abline(reg4,lwd = 2,col = 2)
+```
+
+## Automatic variable selection by stepwise regression
+```{r}
+# Fit MLR with cancer_subset
+canc.fit <- lm(target_death_rate ~ ., data = cancer_reg)
+
+# Automatic procedure: Stepwise regression to select model
+step.fit <- step(canc.fit, direction='backward')
+```
+
+## Criterion based procedure for variable selection
+
+``` {r}
+# Summary of models for each size
+b<-regsubsets(target_death_rate ~ ., nvmax = 26, data=cancer_reg)
+(rs<-summary(b))
+rs$cp
+rs$adjr2
+```
+
+### Plot Cp and adj R2 vs. No of parameters
+```{r}
+par(mfrow=c(1,2))
+plot(1:26, rs$cp, xlab="No of parameters", ylab="Cp Statistic")
+abline(0,1)
+plot(1:26, rs$adjr2, xlab="No of parameters", ylab="Adj R2")
+```
+
+### Find best model of each size
+```{r}
+best <- function(model, ...) 
+{
+  subsets <- regsubsets(formula(model), nvmax = 26, model.frame(model), ...)
+  subsets <- with(summary(subsets),
+                  cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
+  
+  return(subsets)
+}  
+
+round(best(canc.fit, nbest = 1), 6)
+```
+
+17 parameter model minimizes Cp, while 21 parameter model minimizes adjR2.
+
+### Fit regression models that minimize Cp and adjR2.
+```{r}
+Cp.fit <- lm(target_death_rate ~ incidence_rate + med_income + median_age_male + median_age_female + pct_hs18_24 
+             + pct_hs25_over + pct_bach_deg25_over + pct_employed16_over + pct_unemployed16_over 
+             + pct_private_coverage + pct_emp_priv_coverage + pct_public_coverage 
+             + pct_public_coverage_alone + pct_white + birth_rate + mortality + prevalence, data = cancer_reg)
+
+adjR2.fit <- lm(target_death_rate ~ incidence_rate + med_income + study_per_cap + median_age_male 
+                + median_age_female + pct_hs18_24 + pct_hs25_over + pct_bach_deg25_over + pct_employed16_over 
+                + pct_unemployed16_over + pct_private_coverage + pct_emp_priv_coverage + pct_public_coverage 
+                + pct_public_coverage_alone + pct_white + pct_married_households + birth_rate + mortality 
+                + prevalence + pct_non_white, data = cancer_reg)
+
+```
