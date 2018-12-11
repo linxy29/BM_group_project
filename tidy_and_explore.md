@@ -154,8 +154,6 @@ cancer_reg = cancer_reg %>% select(-county, -state) %>%
  ##changed study_per_cap to factor variable
 ```
 
-Now we're left with 26 variables
-
 ### exploratory analysis
 
 ``` r
@@ -347,9 +345,8 @@ knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
 | none            |  1931|  0.63|
 | very high       |   762|  0.25|
 
-Choose varibles from health coverage, education, employment based on best fit.
-
-### coverage
+subset
+------
 
 ``` r
 multi.fit = lm(target_death_rate ~ ., data = cancer_reg)
@@ -402,6 +399,13 @@ summary(multi.fit)
     ## F-statistic: 409.2 on 26 and 2868 DF,  p-value: < 2.2e-16
 
 ``` r
+cancer_subset = cancer_reg %>%
+  select(target_death_rate, incidence_rate, med_income, median_age_male, median_age_female, pct_hs18_24, pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_public_coverage_alone, birth_rate, mortality, prevalence, pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage )
+```
+
+### coverage
+
+``` r
 reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg) %>%
   summary()
 reg2 = lm(target_death_rate~pct_emp_priv_coverage, data = cancer_reg) %>%
@@ -420,7 +424,7 @@ abline(reg1,lwd = 2,col = 2)
     ## Warning in abline(reg1, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-1.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-8-1.png)
 
 ``` r
 plot(cancer_reg$pct_emp_priv_coverage, cancer_reg$target_death_rate)
@@ -430,7 +434,7 @@ abline(reg2,lwd = 2,col = 2)
     ## Warning in abline(reg2, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-2.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-8-2.png)
 
 ``` r
 plot(cancer_reg$pct_public_coverage, cancer_reg$target_death_rate)
@@ -440,7 +444,7 @@ abline(reg3,lwd = 2,col = 2)
     ## Warning in abline(reg3, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-3.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-8-3.png)
 
 ``` r
 plot(cancer_reg$pct_public_coverage_alone, cancer_reg$target_death_rate)
@@ -450,4 +454,4 @@ abline(reg4,lwd = 2,col = 2)
     ## Warning in abline(reg4, lwd = 2, col = 2): only using the first two of 8
     ## regression coefficients
 
-![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-7-4.png)
+![](tidy_and_explore_files/figure-markdown_github/unnamed-chunk-8-4.png)

@@ -74,7 +74,7 @@ cancer_reg = cancer_reg %>% select(-county, -state) %>%
 
 ```
 
-Now we're left with `r ncol(cancer_reg)` variables
+
 
 ###exploratory analysis
 
@@ -132,12 +132,20 @@ knitr::kable(digits = 2, caption = "Descriptive Statistics for clinical trial")
 ```
 
 
-Choose varibles from health coverage, education, employment based on best fit.
+##subset
 
-###coverage
 ```{r}
 multi.fit = lm(target_death_rate ~ ., data = cancer_reg)
 summary(multi.fit)
+
+cancer_subset = cancer_reg %>%
+  select(target_death_rate, incidence_rate, med_income, median_age_male, median_age_female, pct_hs18_24, pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_public_coverage_alone, birth_rate, mortality, prevalence, pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage )
+```
+
+
+###coverage
+```{r}
+
 
 
 reg1 = lm(target_death_rate~pct_private_coverage, data = cancer_reg) %>%
@@ -161,4 +169,6 @@ abline(reg3,lwd = 2,col = 2)
 plot(cancer_reg$pct_public_coverage_alone, cancer_reg$target_death_rate)
 abline(reg4,lwd = 2,col = 2)
 ```
+
+
 
