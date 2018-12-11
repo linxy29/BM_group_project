@@ -14,6 +14,8 @@ knitr::opts_chunk$set(
 library(tidyverse)
 ```
 
+### Load Main dataset
+
 ```{r}
 cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
@@ -77,5 +79,19 @@ cancer_reg = left_join(cancer_reg, tobacco_2013, by = "state") %>%
 
 cancer_reg %>% 
   distinct(state, percent_smoke)
+```
+
+### Look at toxic waste
+```{r}
+cancer_county_chem_pop = readRDS("./data/cancer_county_chem_pop.rds") %>% 
+  janitor::clean_names() %>% 
+  ungroup() %>% 
+  filter(
+    total_rel_summ != 0,
+    pop_est > 50000) %>% 
+  mutate(
+    chemical = purrr::map(chemical, tolower),
+    chemical = str_replace(chemical, " ", "_"),
+    total_rel_log = log(total_rel_summ))
 ```
 
