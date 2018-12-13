@@ -1,0 +1,145 @@
+---
+title: "Literature Review"
+author: "Xinyi Lin"
+date: "12/7/2018"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  message = FALSE,
+  warning = FALSE)
+
+library(tidyverse)
+library(caret)
+```
+
+### Load Main dataset
+
+```{r}
+cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
+  janitor::clean_names() %>%
+  dplyr::select(target_death_rate, everything()) %>%
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
+  mutate(
+    avg_deaths_per_year = as.numeric(avg_deaths_per_year),
+    med_income = as.numeric(med_income),
+    pop_est2015 = as.numeric(med_income),
+    county = str_replace(county, " ", ""),
+    log_med_income = log(med_income))
+```
+
+### Add Smoking Pravalence (current/previous smokers)
+
+* Lung cancer account for highest proportion of cancer deaths. ~20% of lung cancer patients have never smoked. Smoking prevalence within a state is important indicator for mortality. 
+```{r}
+tobacco_2013 = read_csv(file = "./data/BRFD_tobacco_2010_present.csv") %>% 
+  janitor::clean_names() %>% 
+  filter(response == "Never", year == "2013", gender == "Overall") %>% 
+  dplyr::select(year = "year", state = "location_desc", response, percent_never = "data_value") %>%
+  mutate(
+    percent_smoke = as.numeric(100 - percent_never),
+    year = as.numeric(year)) %>% 
+  dplyr::select(state, percent_smoke) %>% 
+  filter(state != c("Guam", "National Median (States and DC)", "Puerto Rico"))
+
+# join data on smoking prevalence by state
+cancer_reg = left_join(cancer_reg, tobacco_2013, by = "state") %>% 
+  dplyr::select(target_death_rate, state, county, percent_smoke, everything())
+
+# smoking prevalence for 50 states and district of columbia
+cancer_reg %>% 
+  distinct(state, percent_smoke)
+```
+
+### Model Building, Based on Subset
+
+```{r}
+# select(-county, -state) %>%
+# variables based on tidying steps
+cancer_reg = cancer_reg %>% 
+  mutate(mortality = avg_deaths_per_year/pop_est2015, prevalence = avg_ann_count/pop_est2015) %>%
+  dplyr::select(-pop_est2015, -avg_ann_count, -avg_deaths_per_year) %>%
+  mutate(study_per_cap =  
+        as.factor(ifelse(study_per_cap == 0, "none", 
+                         ifelse(study_per_cap < quantile(study_per_cap, .25), "low",
+                         ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
+                         ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
+  mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
+  dplyr::select(-pct_black, -pct_asian, -pct_other_race)
+
+# subset based on Apoorva's selection & smoke variable
+# remove state & county
+cancer_reg_subset = cancer_reg %>%
+  dplyr::select(
+    target_death_rate, percent_smoke, incidence_rate, med_income, median_age_male, median_age_female, pct_hs18_24,
+    pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_public_coverage_alone, birth_rate, mortality, prevalence,
+    pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage)
+```
+
+### Final Model Recommend
+
+Adjusted R-squared:  0.4935
+
+**4 predictor model:** target_death_rate ~ log(pct_bach_deg25_over), incidence_rate, pct_private_coverage, percent_smoke
+
+```{r}
+fit_parsimony = lm(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate + pct_private_coverage + 
+    percent_smoke, data = cancer_reg_subset)
+
+summary(fit_parsimony)
+```
+
+### 10-fold cv
+
+```{r}
+train_data_10 = trainControl(method = "cv", number = 10)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret_10 = 
+  train(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate + pct_private_coverage + 
+    percent_smoke, 
+    data = cancer_reg_subset,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret_10
+```
+
+```{r}
+# Model coefficients
+
+model_caret_10$finalModel
+
+# Results of each fold
+
+model_caret_10$resample
+```
+
+### 5-fold cv
+
+```{r}
+train_data_5 = trainControl(method = "cv", number = 5)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret_5 = 
+  train(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate + pct_private_coverage + 
+    percent_smoke, 
+    data = cancer_reg_subset,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret_5
+```
+
+```{r}
+# Model coefficients
+
+model_caret_5$finalModel
+
+# Results of each fold
+
+model_caret_5$resample
+```
