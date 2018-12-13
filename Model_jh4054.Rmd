@@ -2,7 +2,13 @@
 title: "Model_jh4054"
 author: "Joy Hsu"
 date: "12/7/2018"
-output: html_document
+output: 
+    html_document:
+      toc: true
+      toc_float: true
+      toc_depth: 6
+      code_folding: show
+  
 ---
 
 ```{r setup, include=FALSE}
@@ -12,6 +18,9 @@ knitr::opts_chunk$set(
   warning = FALSE)
 
 library(tidyverse)
+library(HH) # For VIF function # or use car::vif(fit_rs)
+library(leaps) # Stepwise and test-based criteria
+library(modelr) # add predictions and cross-validation
 ```
 
 ### Load Main dataset
@@ -19,7 +28,7 @@ library(tidyverse)
 ```{r}
 cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
-  select(target_death_rate, everything()) %>%
+  dplyr::select(target_death_rate, everything()) %>%
   separate(geography, into = c("county", "state"), sep = ", ") %>% 
   mutate(
     avg_deaths_per_year = as.numeric(avg_deaths_per_year),
@@ -28,37 +37,6 @@ cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
     county = str_replace(county, " ", ""),
     log_med_income = log(med_income))
 ```
-
-### Explore correlations
-
-```{r}
-# corrplot::corrplot(cancer_reg)
-
-# look at character strings
-str(cancer_reg)
-
-# correlation plots
-cancer_reg %>% 
-  select(-county, -binned_inc, -state) %>% 
-  select(pct_ , med_income, poverty_percent) %>% GGally::ggpairs()
-
-# scatterplot b/w variables
-cancer_reg %>% 
-  ggplot(aes(x = percent_smoke, y = target_death_rate)) +
-  geom_point()
-
-# test relationship b/w ever smoking rates and cancer mortality incidence
-fit1 = lm(target_death_rate ~ percent_smoke, data = cancer_reg)
-summary(fit1)
-```
-
-### Variables to Transform
-
-### Collinear Variables
-
-1) med_income, poverty_percent. Keep *poverty_percent*, stronger linear rel with explanatory variable
-
-2) Edudation variables
 
 ### Add Smoking Pravalence (current/previous smokers)
 
@@ -74,15 +52,48 @@ tobacco_2013 = read_csv(file = "./data/BRFD_tobacco_2010_present.csv") %>%
   dplyr::select(state, percent_smoke) %>% 
   filter(state != c("Guam", "National Median (States and DC)", "Puerto Rico"))
 
+# join data on smoking prevalence by state
 cancer_reg = left_join(cancer_reg, tobacco_2013, by = "state") %>% 
-  dplyr::select(target_death_rate, state, percent_smoke, everything())
+  dplyr::select(target_death_rate, state, county, percent_smoke, everything())
 
+# smoking prevalence for 50 states and district of columbia
 cancer_reg %>% 
   distinct(state, percent_smoke)
 ```
 
-### Look at toxic waste
+### Variables to Transform
+
+### Collinear Variables
+
+1) med_income, poverty_percent. Keep *poverty_percent*, stronger linear rel with explanatory variable
+
+2) Edudation variables
+
+### Explore correlations, SLR for smoking rate
+
 ```{r}
+# corrplot::corrplot(cancer_reg)
+
+# look at character strings
+str(cancer_reg)
+
+# correlation plots
+cancer_reg %>% 
+  dplyr::select(-county, -binned_inc, -state) %>% 
+  dplyr::select(med_income, poverty_percent) %>% GGally::ggpairs()
+
+# scatterplot b/w variables
+cancer_reg %>% 
+  ggplot(aes(x = percent_smoke, y = target_death_rate)) +
+  geom_point()
+
+# test relationship b/w ever smoking rates and cancer mortality incidence
+fit1 = lm(target_death_rate ~ percent_smoke, data = cancer_reg)
+summary(fit1)
+```
+
+### Look at toxic waste by county
+```{r, eval=FALSE}
 cancer_county_chem_pop = readRDS("./data/cancer_county_chem_pop.rds") %>% 
   janitor::clean_names() %>% 
   ungroup() %>% 
@@ -95,3 +106,176 @@ cancer_county_chem_pop = readRDS("./data/cancer_county_chem_pop.rds") %>%
     total_rel_log = log(total_rel_summ))
 ```
 
+### Model Building, Based on Subset
+
+```{r}
+# select(-county, -state) %>%
+# variables based on tidying steps
+cancer_reg = cancer_reg %>% 
+  mutate(mortality = avg_deaths_per_year/pop_est2015, prevalence = avg_ann_count/pop_est2015) %>%
+  dplyr::select(-pop_est2015, -avg_ann_count, -avg_deaths_per_year) %>%
+  mutate(study_per_cap =  
+        as.factor(ifelse(study_per_cap == 0, "none", 
+                         ifelse(study_per_cap < quantile(study_per_cap, .25), "low",
+                         ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
+                         ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
+  mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
+  dplyr::select(-pct_black, -pct_asian, -pct_other_race)
+
+# subset based on Apoorva's selection & smoke variable
+# remove state & county
+cancer_reg_subset = cancer_reg %>%
+  dplyr::select(
+    target_death_rate, percent_smoke, incidence_rate, med_income, median_age_male, median_age_female, pct_hs18_24,
+    pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_public_coverage_alone, birth_rate, mortality, prevalence,
+    pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage)
+```
+
+### 1. Automatic Search Procedures
+
+Stepwise regression uses the AIC criterion for variable selection. Given a set of candidate models for the data, we prefer the model with the minimum AIC value. AIC rewards goodness of fit (as assessed by the likelihood function), but AIC also includes a penalty that is a function of number of parameters. 
+
+```{r}
+# define full and null sets for forward, backward, both ways search procedures
+null = lm(target_death_rate ~ 1, data = cancer_reg_subset)
+null
+
+full = lm(target_death_rate ~ ., data = cancer_reg_subset)
+full
+```
+
+
+**Forward Selection Model**
+
+Step:  AIC=18156.95
+
+5-Predictor Model(adj. R2: 0.4982): target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_private_coverage + 
+    percent_smoke + pct_emp_priv_coverage
+
+```{r, warning=TRUE, error=TRUE}
+# stepwise regression, forward
+step(null, scope = list(lower = null, upper = full), direction = "forward")
+
+# forward fit
+fit_forward = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_private_coverage + percent_smoke + pct_emp_priv_coverage, data = cancer_reg_subset)
+
+summary(fit_forward)
+```
+
+**Backward Elimination Model**
+
+As we see here, 13 predictor backward model gives marginal improvement on adj R2 over the 5 predictor Forward Model
+
+Step:  AIC=17151.56
+
+Model(Adjusted R-squared:  0.5064): target_death_rate ~ percent_smoke + incidence_rate + med_income + 
+    median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_employed16_over + 
+    pct_unemployed16_over + birth_rate + mortality + prevalence + 
+    pct_private_coverage + pct_emp_priv_coverage
+
+```{r, error=TRUE}
+# stepwise regression, backward
+step(full, data = cancer_reg_subset, direction="backward")
+
+# backward fit
+fit_back = lm(target_death_rate ~ percent_smoke + incidence_rate + med_income + 
+    median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_employed16_over + 
+    pct_unemployed16_over + birth_rate + mortality + prevalence + 
+    pct_private_coverage + pct_emp_priv_coverage, data = cancer_reg_subset)
+
+summary(fit_back)
+```
+
+**Stepwise Regression, Both Directions**
+
+Same output as the Forward Selection process, 5 predictor model. 
+
+Step:  AIC=18156.95
+
+Best Model (Adjusted R-squared:  0.4982) : target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_private_coverage + percent_smoke + pct_emp_priv_coverage
+
+```{r, error=TRUE}
+# stepwise regression, both directions
+step(null, scope = list(upper=full), data = cancer_reg_subset, direction="both")
+
+fit_both_dir = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_private_coverage + percent_smoke + pct_emp_priv_coverage, data = cancer_reg_subset)
+
+summary(fit_both_dir)
+```
+
+**Conclusion**
+
+Automatic Search Procedures using forward selection, stepwise regression generated the same "best model" with 5-parameters, using the AIC criterion. The model has Adjusted R-squared:  0.4982. Backward selection gave 13 predictor best model, Adjusted R-squared:  0.5064, may be overfitting here. 
+
+### 2. Criterion Based Procedures
+
+**Best subsets regression procedure with Mallows’ Cp and Adjusted R2 Criterion**
+
+* For Mallow's Cp-statistic, the Cp Statistic should be less than or equal to the # of parameters. Optimizing for lowest Cp Statistic, we select 4 parameters.
+* For R^2(adj) criteria, we optimize for highest R^2(adj), while accounting for parsimony. Selecting 4 parameters optimizes both the R^2(adj) criterion and overarching goal for parsimony. 
+* From the plots, we might want to focus on the 7-8 predictor range
+
+```{r}
+criterion = leaps::regsubsets(target_death_rate ~ ., data = cancer_reg_subset, nvmax = 17)
+crit_sum = summary(criterion)
+
+# Plots for Cp Statistic and Adjusted R2
+par(mar = c(4,4,1,1))
+par(mfrow = c(1,2))
+
+# Cp Statistic Plot 
+plot(x = 1:16, y = crit_sum$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+# abline - adds straight lines to a plot
+abline(0,1)
+
+# Adjusted R2 Plot
+plot(x = 1:16, y = crit_sum$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+```
+
+**Summary Table for Cp Statistic and Adjusted R2**
+```{r}
+# fit with all parameters
+fit_multi = lm(target_death_rate ~ ., data = cancer_reg_subset)
+
+# best subset of variables for given number of parameters
+best = function(model, ...) 
+{
+  subsets <- regsubsets(formula(model), model.frame(model), ...)
+  subsets <- with(summary(subsets),
+                  cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
+  
+  return(subsets)
+}  
+
+# Select the 'best' model of all subsets for 8-predictor model
+# again, focus on models with 4-6 predictors??
+round(best(fit_multi, nbest = 1), 8) %>% knitr::kable()
+```
+
+The adj R2 looks pretty good for 4-6 predictor models (0.48-0.49), but the Cp Criteria is way too high. We may need to go back and do some transformations. At the least, take out one of the the percent insurance coverage due to high collinearity. 
+
+Due to high collinearity b/w the two insurance coverages, only keep **pct_private_coverage**, higher correlation with our main outcome.
+
+```{r}
+# take look at collinearity in the top 5 best variables
+cancer_reg_subset %>% 
+  dplyr::select(target_death_rate, pct_bach_deg25_over, incidence_rate, pct_private_coverage, percent_smoke, pct_emp_priv_coverage) %>% GGally::ggpairs()
+
+# should take log for pct_bach_deg25_over variable
+cancer_reg_subset %>% 
+  ggplot(aes(x = log(pct_bach_deg25_over), y = target_death_rate)) +
+  geom_point()
+```
+
+### Final Model Recommend
+
+Adjusted R-squared:  0.4935
+
+**4 predictor model:** target_death_rate ~ log(pct_bach_deg25_over), incidence_rate, pct_private_coverage, percent_smoke
+
+```{r}
+fit_parsimony = lm(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate + pct_private_coverage + 
+    percent_smoke, data = cancer_reg_subset)
+
+summary(fit_parsimony)
+```
