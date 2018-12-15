@@ -13,8 +13,9 @@ knitr::opts_chunk$set(
 
 library(tidyverse)
 library(HH) # For VIF function # or use car::vif(fit_rs)
-library(leaps) # Stepwise and test-based criteria
+library("leaps") # Stepwise and test-based criteria
 library(modelr) # add predictions and cross-validation
+library(caret)
 ```
 
 ### Load Main dataset
@@ -120,6 +121,15 @@ When using criterion based procedures, we get one models with 8 parameters satis
 8-parameters model: lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
 
 19-parameters model(only 11 predictors): lm(formula = target_death_rate ~ incidence_rate + binned_inc + median_age_male + pct_bach_deg25_over + pct_hs18_24 + percent_married + pct_married_households + pct_other_race + pct_public_coverage_alone +  pct_unemployed16_over + birth_rate, data = cancer_reg_tidy)
+
+```{r}
+cancer_reg_cp =
+  cancer_reg %>% 
+  as.data.frame() %>% 
+  dplyr::select(target_death_rate, pct_bach_deg25_over, incidence_rate, binned_inc, pct_married_households, pct_hs18_24, pct_other_race, median_age_male, birth_rate, pct_public_coverage_alone, percent_married, pct_unemployed16_over, pct_white)
+
+leaps(x = cancer_reg_cp[,2:13], y = cancer_reg_cp[,1], nbest=1, method="Cp")
+```
 
 ### Cross validation
 
