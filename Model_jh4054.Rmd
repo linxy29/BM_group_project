@@ -167,12 +167,10 @@ summary(fit_back)
 
 **Stepwise Regression, Both Directions**
 
-Same output as others
+Same 10 predictor output as forwards and backwards
 
 Step:  AIC=18159.4
-target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
-    pct_other_race + pct_white + pct_hs18_24 + median_age_male + 
-    birth_rate + pct_married_households + pct_unemployed16_over
+target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over
 
 ```{r}
 # stepwise regression, both directions
@@ -241,6 +239,7 @@ cp_r2_df = round(best(fit_multi, nbest = 1), digits = 3)
 cp_r2_df
 ```
 
+
 The adj R2 looks pretty good for ~7 predictor models (0.49), but the Cp Criteria is too high (55.99)
 ```{r}
 # should take log for pct_bach_deg25_over variable
@@ -253,13 +252,25 @@ fit1 = s
 
 ### 5. Final 3 Models
 
-**12-predictor Model (Adjusted R-squared:  0.5096):** target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white
-
 ```{r}
-fit_final = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white, data = cancer_reg_tidy)
+# 10 predictor stepwise automatic search model
+# Adjusted R-squared:  0.4986
+fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+    pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
 
-summary(fit_final)
+summary(fit_auto)
+
+# 9 predictor cp model
+# Adjusted R-squared:  0.4983 
+fit_cp = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
+
+summary(fit_cp)
+
+# 7 predictor adjusted R2 model
+# Adjusted R-squared:  0.4927 
+fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+
+summary(fit_r2)
 ```
-
 
 
