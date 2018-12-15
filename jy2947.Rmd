@@ -102,6 +102,32 @@ fit_parsimony = lm(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate
 summary(fit_parsimony)
 ```
 
+###Model diagnostic for 4 predictors model
+```{r}
+par(mfrow = c(2, 2))
+plot(fit_parsimony)
+```
+
+###Model diagnostic for criterion based models
+```{r}
+Cp.fit <- lm(target_death_rate ~ incidence_rate + med_income + median_age_male + median_age_female + pct_hs18_24 
+             + pct_hs25_over + pct_bach_deg25_over + pct_employed16_over + pct_unemployed16_over 
+             + pct_private_coverage + pct_emp_priv_coverage + pct_public_coverage 
+             + pct_public_coverage_alone + pct_white + birth_rate + mortality + prevalence, data = cancer_reg)
+par(mfrow = c(2, 2))
+plot(Cp.fit)
+
+
+adjR2.fit <- lm(target_death_rate ~ incidence_rate + med_income + study_per_cap + median_age_male 
+                + median_age_female + pct_hs18_24 + pct_hs25_over + pct_bach_deg25_over + pct_employed16_over 
+                + pct_unemployed16_over + pct_private_coverage + pct_emp_priv_coverage + pct_public_coverage 
+                + pct_public_coverage_alone + pct_white + pct_married_households + birth_rate + mortality 
+                + prevalence + pct_non_white, data = cancer_reg)
+par(mfrow = c(2, 2))
+plot(adjR2.fit)
+```
+
+
 ### Ridge
 ```{r}
 grid = 10^seq(5,-2, length=100)
