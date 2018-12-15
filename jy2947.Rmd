@@ -41,6 +41,7 @@ cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
     log_med_income = log(med_income))
 ```
 
+
 ### Add Smoking Pravalence (current/previous smokers)
 
 * Lung cancer account for highest proportion of cancer deaths. ~20% of lung cancer patients have never smoked. Smoking prevalence within a state is important indicator for mortality. 
@@ -100,6 +101,25 @@ fit_parsimony = lm(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate
     percent_smoke, data = cancer_reg_subset)
 
 summary(fit_parsimony)
+```
+
+
+####colinearity?
+
+```{r}
+corr_ma = cor(cancer_reg_subset) %>% as.data.frame()
+round(corr_ma, digits = 3) 
+```
+
+####correlation matrix in `a` data set
+
+```{r}
+cancer_reg_a = read_csv("./data/Cancer_Registry.csv") %>% 
+  janitor::clean_names()
+cancer_reg_a %>% 
+  dplyr::select(target_death_rate, avg_ann_count, avg_deaths_per_year, incidence_rate) %>% 
+  cor() %>% 
+  round(digits = 3) 
 ```
 
 ###Model diagnostic for 4 predictors model
