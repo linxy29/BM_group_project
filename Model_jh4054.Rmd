@@ -222,7 +222,7 @@ fit_multi = lm(target_death_rate ~ ., data = cancer_reg_tidy)
 # best subset of variables for given number of parameters
 best = function(model, ...) 
 {
-  subsets <- regsubsets(formula(model), model.frame(model), ...)
+  subsets <- regsubsets(formula(model), nvmax = 21, model.frame(model), ...)
   subsets <- with(summary(subsets),
                   cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
   
