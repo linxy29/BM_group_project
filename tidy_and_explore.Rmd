@@ -18,7 +18,7 @@ library(broom)
 ```{r}
 cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
-  select(target_death_rate, everything()) %>%
+  dplyr::select(target_death_rate, everything()) %>%
   separate(geography, into = c("county", "state"), sep = ",")
 ```
 

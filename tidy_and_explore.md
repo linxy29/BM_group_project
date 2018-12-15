@@ -7,14 +7,14 @@ Apoorva Srinivasan
 library(tidyverse)
 ```
 
-    ## ── Attaching packages ───────────────────────────────────────────── tidyverse 1.2.1 ──
+    ## ── Attaching packages ────────────────────────────────────────────────────────────────────────────────────────── tidyverse 1.2.1 ──
 
-    ## ✔ ggplot2 3.0.0     ✔ purrr   0.2.5
+    ## ✔ ggplot2 3.1.0     ✔ purrr   0.2.5
     ## ✔ tibble  1.4.2     ✔ dplyr   0.7.8
-    ## ✔ tidyr   0.8.1     ✔ stringr 1.3.1
+    ## ✔ tidyr   0.8.2     ✔ stringr 1.3.1
     ## ✔ readr   1.1.1     ✔ forcats 0.3.0
 
-    ## ── Conflicts ──────────────────────────────────────────────── tidyverse_conflicts() ──
+    ## ── Conflicts ───────────────────────────────────────────────────────────────────────────────────────────── tidyverse_conflicts() ──
     ## ✖ dplyr::filter() masks stats::filter()
     ## ✖ dplyr::lag()    masks stats::lag()
 
@@ -50,7 +50,7 @@ library(broom)
 ``` r
 cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
-  select(target_death_rate, everything()) %>%
+  dplyr::select(target_death_rate, everything()) %>%
   separate(geography, into = c("county", "state"), sep = ",")
 ```
 
