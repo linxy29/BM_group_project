@@ -18,7 +18,7 @@ library(broom)
 ```{r}
 cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
-  select(target_death_rate, everything()) %>%
+  dplyr::select(target_death_rate, everything()) %>%
   separate(geography, into = c("county", "state"), sep = ",")
 ```
 
@@ -45,7 +45,7 @@ percentage_missing %>% data.frame()
 
 ##getting rid of variables with missing values.
 
-cancer_reg = cancer_reg %>% select(-pct_some_col18_24, -pct_private_coverage_alone, -binned_inc, -median_age) 
+cancer_reg = cancer_reg %>% dplyr::select(-pct_some_col18_24, -pct_private_coverage_alone, -binned_inc, -median_age) 
 
   ##removed binned_inc since we already have median income and median age since it is avg of median age female and male. so we'll build model with those those factors instead. 
 
@@ -58,14 +58,14 @@ reg = lm(target_death_rate~pct_employed16_over, data = cancer_reg) %>%
 
 cancer_reg = cancer_reg %>% select(-county, -state) %>%
   mutate(mortality = avg_deaths_per_year/pop_est2015, prevalence = avg_ann_count/pop_est2015) %>%
-  select(-pop_est2015, -avg_ann_count, -avg_deaths_per_year) %>%
+  dplyr::select(-pop_est2015, -avg_ann_count, -avg_deaths_per_year) %>%
  mutate(study_per_cap =  
         as.factor(ifelse(study_per_cap == 0, "none", 
                          ifelse(study_per_cap < quantile(study_per_cap, .25), "low",
                          ifelse(study_per_cap < quantile(study_per_cap, .5), "medium" ,
                                 ifelse(study_per_cap < quantile(study_per_cap, .75), "high", "very high")))))) %>%
   mutate(pct_non_white = pct_black+ pct_asian + pct_other_race) %>%
-  select(-pct_black, -pct_asian, -pct_other_race) ##since the number of white people are a lot higher, putting the other minorities under a single variable.
+  dplyr::select(-pct_black, -pct_asian, -pct_other_race) ##since the number of white people are a lot higher, putting the other minorities under a single variable.
 
   ##Since count itself can be misleading, taking proportion will give us a better model. 
  ##removed state and county variables since we're building a predictive model, area doesn't really matter.

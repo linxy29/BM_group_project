@@ -79,6 +79,14 @@ cancer_reg_subset = cancer_reg %>%
 
 ### Final Model Recommend
 
+stepwise model: 
+target_death_rate ~ incidence_rate + med_income + median_age_male + median_age_female + pct_hs18_24 + pct_hs25_over + pct_bach_deg25_over + pct_employed16_over + pct_unemployed16_over + pct_private_coverage +  pct_emp_priv_coverage + pct_public_coverage + pct_public_coverage_alone + pct_white + birth_rate + mortality + prevalence
+
+17 parameter model minimizes Cp, while 21 parameter model minimizes adjR2.
+
+
+
+
 Adjusted R-squared:  0.4935
 
 **4 predictor model:** target_death_rate ~ log(pct_bach_deg25_over), incidence_rate, pct_private_coverage, percent_smoke
