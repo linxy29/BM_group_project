@@ -186,14 +186,22 @@ summary(fit_both_dir)
 
 **Conclusion**
 
-Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 12-parameters, using the AIC criterion. The model has Adjusted R-squared:  0.5014. 
+Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 10-predictors, using the AIC criterion. The model has Adjusted R-squared: 0.4986. 
+
+```{r}
+fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+    pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
+
+summary(fit_auto)
+```
+
 
 ### 4. Criterion Based Procedures
 
 **Best subsets regression procedure with Mallows’ Cp and Adjusted R2 Criterion**
 
-* For Mallow's Cp-statistic, the Cp Statistic should be less than or equal to the # of parameters. Optimizing for lowest Cp Statistic, we select 9 parameters.
-* For R^2(adj) criteria, we optimize for highest R^2(adj), while accounting for parsimony. Selecting ~8 parameters optimizes both the R^2(adj) criterion and overarching goal for parsimony. Not much improvement over 8 parameters. 
+* For Mallow's Cp-statistic, the Cp Statistic should be less than or equal to the # of parameters. Optimizing for lowest Cp Statistic, we select 9 predictors
+* For R^2(adj) criteria, we optimize for highest R^2(adj), while accounting for parsimony. Selecting ~7 predictors optimizes both the R^2(adj) criterion and overarching goal for parsimony.
 
 ```{r}
 criterion = leaps::regsubsets(target_death_rate ~ ., data = cancer_reg_tidy, nvmax = 18)
