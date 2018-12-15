@@ -85,6 +85,7 @@ We are left with 20 variables
 ```{r}
 # Examine collinearity between variables
 cor_df = cancer_reg_tidy %>%
+  dplyr::select(-binned_inc) %>% 
   cor()
 
 # remove collinear variables
@@ -246,9 +247,11 @@ The adj R2 looks pretty good for ~7 predictor models (0.49), but the Cp Criteria
 cancer_reg_tidy %>% 
   ggplot(aes(x = log(pct_bach_deg25_over), y = target_death_rate)) +
   geom_point()
+
+fit1 = s
 ```
 
-### 5. Final Model Recommend
+### 5. Final 3 Models
 
 **12-predictor Model (Adjusted R-squared:  0.5096):** target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white
 
