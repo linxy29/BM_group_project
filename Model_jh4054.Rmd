@@ -68,6 +68,7 @@ cancer_reg_tidy = cancer_reg %>%
 
 Next, we will examine collinearity between remaining variables. Remove the following:
 
+* get rid of bin_income
 * med_income - CL with pct_bach_deg25_over
 * pop_est2015 - CL with poverty_percent (-0.79)
 * poverty_percent - CL with pct_public_coverage_alone (0.798)
@@ -94,9 +95,9 @@ cor_df = cancer_reg_tidy %>%
 # create proxy variable pct_nonwhite
 cancer_reg_tidy = cancer_reg %>% 
   dplyr::select(
-    -pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state,    -avg_ann_count, -avg_deaths_per_year) %>%  
+    -pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state, -avg_ann_count, -avg_deaths_per_year) %>%  
   dplyr::select(
-    -med_income, -median_age_female, -pct_emp_priv_coverage, -pct_public_coverage, -pct_private_coverage, -pop_est2015, -poverty_percent, -pct_hs25_over) %>% 
+    -med_income, -median_age_female, -pct_emp_priv_coverage, -pct_public_coverage, -pct_private_coverage, -pop_est2015, -poverty_percent, -pct_hs25_over, -binned_inc) %>% 
   mutate(pct_nonwhite = 1 - pct_white)
 ```
 
@@ -123,35 +124,28 @@ full = lm(target_death_rate ~ ., data = cancer_reg_tidy)
 ```
 
 **Forward Selection Model**
+    
+Step:  AIC=18143.45
 
-Step:  AIC=18101.67
-
-12-Predictor Model(adj. R2: 0.5096): target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + 
-    birth_rate + pct_public_coverage_alone + percent_married + 
-    pct_unemployed16_over + pct_white
+11-Predictor Model(Adjusted R-squared:  0.5014): target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + percent_married + pct_unemployed16_over
 
 ```{r, warning=TRUE, error=TRUE}
 # stepwise regression, forward
 step(null, scope = list(lower = null, upper = full), direction = "forward")
 
 # forward fit
-fit_forward = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + 
-    pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + 
-    birth_rate + pct_public_coverage_alone + percent_married + 
-    pct_unemployed16_over + pct_white, data = cancer_reg_tidy)
+fit_forward = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+    pct_other_race + pct_white + pct_hs18_24 + median_age_male + 
+    birth_rate + pct_married_households + percent_married + pct_unemployed16_over, data = cancer_reg_tidy)
 
 summary(fit_forward)
 ```
 
 **Backward Elimination Model**
 
-As we see here, 13 predictor backward model gives marginal improvement on adj R2 over the 5 predictor Forward Model
+Step:  AIC=18143.45
 
-Step:  AIC=18101.67
-
-12-predictor Model (Adjusted R-squared:  0.5096) :target_death_rate ~ incidence_rate + binned_inc + median_age_male + percent_married + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + 
-    pct_public_coverage_alone + pct_white + pct_other_race + 
-    pct_married_households + birth_rate
+target_death_rate ~ incidence_rate + median_age_male + percent_married + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_white + pct_other_race + pct_married_households + birth_rate
 
 ```{r, error=TRUE}
 # stepwise regression, backward
@@ -170,9 +164,11 @@ summary(fit_back)
 
 Same output as others
 
-Step:  AIC=18101.67
+Step:  AIC=18143.45
 
-12-predictor Model (Adjusted R-squared:  0.5096): target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white
+target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+    pct_other_race + pct_white + pct_hs18_24 + median_age_male + 
+    birth_rate + pct_married_households + percent_married + pct_unemployed16_over
 
 ```{r}
 # stepwise regression, both directions
@@ -187,7 +183,7 @@ summary(fit_both_dir)
 
 **Conclusion**
 
-Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 12-parameters, using the AIC criterion. The model has Adjusted R-squared:  0.5096. 
+Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 12-parameters, using the AIC criterion. The model has Adjusted R-squared:  0.5014. 
 
 ### 4. Criterion Based Procedures
 
@@ -195,23 +191,23 @@ Automatic Search Procedures using forward & backward selection, stepwise regress
 
 * For Mallow's Cp-statistic, the Cp Statistic should be less than or equal to the # of parameters. Optimizing for lowest Cp Statistic, we select 15 parameters.
 * For R^2(adj) criteria, we optimize for highest R^2(adj), while accounting for parsimony. Selecting ~10 parameters optimizes both the R^2(adj) criterion and overarching goal for parsimony. Not much improvement over 10 parameters. 
-* We should have a 10 parameter and 15 parameter model. 
 
 ```{r}
-criterion = leaps::regsubsets(target_death_rate ~ ., data = cancer_reg_tidy, nvmax = 20)
+criterion = leaps::regsubsets(target_death_rate ~ ., data = cancer_reg_tidy, nvmax = 19)
 crit_sum = summary(criterion)
+summary(criterion)
 
 # Plots for Cp Statistic and Adjusted R2
 par(mar = c(4,4,1,1))
 par(mfrow = c(1,2))
 
 # Cp Statistic Plot 
-plot(x = 1:20, y = crit_sum$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+plot(x = 1:18, y = crit_sum$cp, xlab = "No of parameters", ylab = "Cp Statistic")
 # abline - adds straight lines to a plot
 abline(0,1)
 
 # Adjusted R2 Plot
-plot(x = 1:20, y = crit_sum$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+plot(x = 1:18, y = crit_sum$adjr2, xlab = "No of parameters", ylab = "Adj R2")
 ```
 
 **Summary Table for Cp Statistic and Adjusted R2**
@@ -222,7 +218,11 @@ fit_multi = lm(target_death_rate ~ ., data = cancer_reg_tidy)
 # best subset of variables for given number of parameters
 best = function(model, ...) 
 {
+<<<<<<< HEAD
+  subsets <- regsubsets(formula(model), nvmax = 20, model.frame(model), ...)
+=======
   subsets <- regsubsets(formula(model), nvmax = 21, model.frame(model), ...)
+>>>>>>> e2af2b977559a99e902acd5b71bbe185d187ed70
   subsets <- with(summary(subsets),
                   cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
   
@@ -230,9 +230,13 @@ best = function(model, ...)
 }  
 
 # Select the 'best' model of all subsets for 8-predictor model
+<<<<<<< HEAD
+cp_r2_df = round(best(fit_multi, nbest = 1), 19)
+=======
 cp_r2_df = round(best(fit_multi, nbest = 1), digits = 4)
 
 cp_r2_df
+>>>>>>> e2af2b977559a99e902acd5b71bbe185d187ed70
 ```
 
 The adj R2 looks pretty good for ~10 predictor models (0.48-0.49), but the Cp Criteria is way too high. 
@@ -252,3 +256,6 @@ fit_final = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned
 
 summary(fit_final)
 ```
+
+
+
