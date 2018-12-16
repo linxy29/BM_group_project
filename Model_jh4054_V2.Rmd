@@ -83,7 +83,7 @@ Other variables of consideration.
 * create pct_nonwhite as a proxy
 * discuss why pct_black and pct_white has such negative correlation in report
 
-We are left with 20 variables
+We are left with 21 variables
 ```{r}
 # Examine collinearity between variables
 cor_df = cancer_reg_tidy %>%
@@ -103,17 +103,6 @@ cancer_reg_tidy = cancer_reg %>%
   arrange(target_death_rate, incidence_rate)
 
 skimr::skim(cancer_reg_tidy)
-```
-
-### 3. Variables to Transform IGNORE FOR NOW
-
-1) med_income, poverty_percent. Keep *poverty_percent*, stronger linear rel with explanatory variable
-
-```{r}
-# scatterplot b/w variables
-cancer_reg %>% 
-  ggplot(aes(x = pct_white, y = log(target_death_rate))) +
-  geom_point()
 ```
 
 ### 3. Automatic Search Procedures
@@ -261,10 +250,10 @@ cancer_reg_tidy %>%
 
 ### 5. Final 3 Models & Diagnostics (Check Model Assumptions)
 
-Since all three models satisfied model assumptions: 
+Three models satisfied model assumptions: 
 
 * normality of residuals
-* equal variance 
+* equal variance
 
 ```{r}
 # 10 predictor stepwise automatic search model
