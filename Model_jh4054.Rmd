@@ -33,7 +33,7 @@ cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   mutate(
     avg_deaths_per_year = as.numeric(avg_deaths_per_year),
     med_income = as.numeric(med_income),
-    pop_est2015 = as.numeric(med_income),
+    pop_est2015 = as.numeric(pop_est2015),
     county = str_replace(county, " ", ""))
 ```
 
@@ -69,11 +69,11 @@ cancer_reg_tidy = cancer_reg %>%
 Next, we will examine collinearity between remaining variables. Remove the following:
 
 * get rid of bin_income, since we will use med_income to look at income
-* med_income - CL with pct_bach_deg25_over
-* pop_est2015 - CL with poverty_percent (-0.79)
-* poverty_percent - CL with pct_public_coverage_alone (0.798)
-* percent_married - CL with pct_married_households (0.87)
-* pct_hs25_over - CL with pct_bach_deg25_over (-0.74)
+* med_income - CL with pct_bach_deg25_over (r = 0.70)
+* pop_est2015 - CL with poverty_percent (r = -0.79)
+* poverty_percent - CL with pct_public_coverage_alone (r = 0.798)
+* percent_married - CL with pct_married_households (r = 0.87)
+* pct_hs25_over - CL with pct_bach_deg25_over (r = -0.74)
 * Only keep "pct_public_coverage_alone" - out of all insurance variables, this has highest correlation with main outcome. High CL between between all insurance variables. 
 
 Other variables of consideration.
@@ -143,6 +143,8 @@ fit_forward = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_
     birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
 
 summary(fit_forward)
+
+car::vif(fit_forward)
 ```
 
 **Backward Elimination Model**
@@ -273,6 +275,13 @@ plot(fit_cp)
 # 7 predictor adjusted R2 model
 # Adjusted R-squared:  0.4927 
 fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+
+summary(fit_r2)
+
+par(mfrow = c(2,2))
+plot(fit_r2)
+
+fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_black + pct_asian + pct_married_households + pct_nonwhite, data = cancer_reg_tidy)
 
 summary(fit_r2)
 
