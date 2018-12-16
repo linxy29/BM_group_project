@@ -89,10 +89,12 @@ cor_df = cancer_reg_tidy %>%
 # create proxy variable pct_nonwhite
 cancer_reg_tidy = cancer_reg %>% 
   dplyr::select(
-    -pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state,    -avg_ann_count, -avg_deaths_per_year) %>%  
+    -pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state, -avg_ann_count, -avg_deaths_per_year) %>%  
   dplyr::select(
-    -med_income, -median_age_female, -pct_emp_priv_coverage, -pct_public_coverage, -pct_private_coverage, -pop_est2015, -poverty_percent, -pct_hs25_over) %>% 
+    -med_income, -median_age_female, -pct_emp_priv_coverage, -pct_public_coverage, -pct_private_coverage, -pop_est2015, -poverty_percent, -pct_hs25_over, -percent_married, -binned_inc) %>% 
   mutate(pct_nonwhite = 1 - pct_white)
+
+skimr::skim(cancer_reg_tidy)
 ```
 
 ### 3. Variables to Transform IGNORE FOR NOW
@@ -110,35 +112,39 @@ cancer_reg %>%
 
 ### 1. Automatic Procedures
 
-Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 13-parameters, using the AIC criterion. The model has Adjusted R-squared:  0.5096. 
-
-lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white, data = cancer_reg_tidy)
+10-predictor Model:
+Step:  AIC=18159.4
+Adjusted R-squared:  0.4986
+target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+    pct_other_race + pct_white + pct_hs18_24 + median_age_male + 
+    birth_rate + pct_married_households + pct_unemployed16_over
 
 ### 2. Criterion Based Procedures
 
-When using criterion based procedures, we get one models with 8 parameters satisfied Cp criterion best and models with 19 parameters satisfied adjusted r-square best.
+When using criterion based procedures, we get one models with 10 parameters satisfied Cp criterion best and models with 8 parameters satisfied adjusted r-square best.
 
-8-parameters model: lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+10-parameters model: lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
 
-19-parameters model(only 11 predictors): lm(formula = target_death_rate ~ incidence_rate + binned_inc + median_age_male + pct_bach_deg25_over + pct_hs18_24 + percent_married + pct_married_households + pct_other_race + pct_public_coverage_alone +  pct_unemployed16_over + birth_rate, data = cancer_reg_tidy)
+8-parameters model: lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+
 
 ```{r}
 cancer_reg_cp =
   cancer_reg %>% 
   as.data.frame() %>% 
-  dplyr::select(target_death_rate, pct_bach_deg25_over, incidence_rate, binned_inc, pct_married_households, pct_hs18_24, pct_other_race, median_age_male, birth_rate, pct_public_coverage_alone, percent_married, pct_unemployed16_over, pct_white)
+  dplyr::select(target_death_rate, pct_bach_deg25_over, incidence_rate, pct_married_households, pct_hs18_24, pct_other_race, median_age_male, birth_rate, pct_public_coverage_alone, percent_married, pct_unemployed16_over, pct_white)
 
-leaps(x = cancer_reg_cp[,2:13], y = cancer_reg_cp[,1], nbest=1, method="Cp")
+leaps(x = cancer_reg_cp[,2:12], y = cancer_reg_cp[,1], nbest=1, method="Cp")
 ```
 
 ### Cross validation
 
 ```{r}
-model_12 = lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white, data = cancer_reg_tidy)
+model_10 = lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
 
-model_7 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+model_9 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
 
-model_18 = lm(formula = target_death_rate ~ incidence_rate + binned_inc + median_age_male + pct_bach_deg25_over + pct_hs18_24 + percent_married + pct_married_households + pct_other_race + pct_public_coverage_alone +  pct_unemployed16_over + birth_rate, data = cancer_reg_tidy)
+model_7 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
 ```
 
 ### 1. 10-fold cv
@@ -147,38 +153,38 @@ model_18 = lm(formula = target_death_rate ~ incidence_rate + binned_inc + median
 train_data_10 = trainControl(method = "cv", number = 10)
 
 # Fit the 4-variables model that we discussed in previous lectures
-model_caret10_12 = 
-  train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white, 
+model_caret10_10 = 
+  train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_9 = 
+  train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, 
     data = cancer_reg_tidy,
     trControl = train_data_10,
     method = 'lm',
     na.action = na.pass)
 
 model_caret10_7 = 
-  train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, 
+  train(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, 
     data = cancer_reg_tidy,
     trControl = train_data_10,
     method = 'lm',
     na.action = na.pass)
 
-model_caret10_18 = 
-  train(target_death_rate ~ incidence_rate + binned_inc + median_age_male + pct_bach_deg25_over + pct_hs18_24 + percent_married + pct_married_households + pct_other_race + pct_public_coverage_alone +  pct_unemployed16_over + birth_rate, 
-    data = cancer_reg_tidy,
-    trControl = train_data_10,
-    method = 'lm',
-    na.action = na.pass)
+model_caret10_10 
+#  RMSE     Rsquared   MAE     
+#  19.7024  0.4938789  14.68475
 
-model_caret10_12 
-# RMSE      Rsquared   MAE     
-# 19.50447  0.5054299  14.51415
+model_caret10_9
+#  RMSE      Rsquared   MAE     
+#  19.68147  0.4967687  14.66503
 
 model_caret10_7
-#  RMSE      Rsquared   MAE    
-#  19.79145  0.4922029  14.8341
-
-model_caret10_18
-#  RMSE     Rsquared   MAE    
-#  19.5117  0.5053136  14.5153
+#  RMSE      Rsquared   MAE     
+#  19.79374  0.4900993  14.82677
 
 ```
 
@@ -188,38 +194,38 @@ model_caret10_18
 train_data_5 = trainControl(method = "cv", number = 5)
 
 # Fit the 4-variables model that we discussed in previous lectures
-model_caret5_12 = 
-  train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + binned_inc + pct_married_households + pct_hs18_24 + pct_other_race + median_age_male + birth_rate + pct_public_coverage_alone + percent_married + pct_unemployed16_over + pct_white, 
+model_caret5_10 = 
+  train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_9 = 
+  train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, 
     data = cancer_reg_tidy,
     trControl = train_data_5,
     method = 'lm',
     na.action = na.pass)
 
 model_caret5_7 = 
-  train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, 
+  train(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, 
     data = cancer_reg_tidy,
     trControl = train_data_5,
     method = 'lm',
     na.action = na.pass)
 
-model_caret5_18 = 
-  train(target_death_rate ~ incidence_rate + binned_inc + median_age_male + pct_bach_deg25_over + pct_hs18_24 + percent_married + pct_married_households + pct_other_race + pct_public_coverage_alone +  pct_unemployed16_over + birth_rate, 
-    data = cancer_reg_tidy,
-    trControl = train_data_5,
-    method = 'lm',
-    na.action = na.pass)
-
-model_caret5_12 
+model_caret5_10 
 #  RMSE      Rsquared   MAE     
-#  19.51655  0.5058666  14.51661
+#  19.70115  0.4967758  14.65786
+
+model_caret5_9
+#  RMSE      Rsquared   MAE     
+#  19.69373  0.4956894  14.66347
 
 model_caret5_7
 #  RMSE      Rsquared   MAE     
-#  19.82183  0.4902875  14.84084
-
-model_caret5_18
-#  RMSE      Rsquared   MAE     
-#  19.57749  0.5042236  14.54268
+#  19.82486  0.4890669  14.84762
 ```
 
 Since three models have similar performance in cross validation, based on 'principle of parsimony', we chose models with 7 predictors.
