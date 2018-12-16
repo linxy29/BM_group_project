@@ -491,44 +491,6 @@ model_remove = lm(formula = target_death_rate ~ incidence_rate + median_age_male
 summary(model_remove)
 ```
 
-# Test cross validation for removed outlier 802
-```{r}
-# create training and testing sets, 100 fold cross-validation, 80/20 split
-cv_cm_remove = modelr::crossv_mc(data = cancer_reg_remove, n = 100, test = 0.2, id = "id")
-
-# 
-cv_cm_remove = cv_cm_remove %>% 
-  mutate(lm_auto = map(train, ~lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = .x)),
-         lm_cp = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = .x)),
-         lm_r2 = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = .x))) %>% 
-  mutate(rmse_auto = map2_dbl(lm_auto, test, ~rmse(model = .x, data = .y)),
-         rmse_cp = map2_dbl(lm_cp, test, ~rmse(model = .x, data = .y)),
-         rmse_r2 = map2_dbl(lm_r2, test, ~rmse(model = .x, data = .y)))
-```
-
-```{r}
-# experimental values for RMSE will vary each time we rerun code
-cv_cm_remove %>% 
-  dplyr::select(starts_with("rmse")) %>% 
-  gather(key = model, value = rmse) %>% 
-  group_by(model) %>% 
-  summarise(mean_rmse = mean(rmse),
-            var_rmse = var(rmse))
-
-# Violin Plots
-cv_cm_remove %>% 
-  dplyr::select(starts_with("rmse")) %>% 
-  gather(key = model, value = rmse) %>% 
-  mutate(
-    model = str_replace(model, "rmse_", "model "),
-    model = fct_reorder(model, rmse)) %>% 
-  ggplot(aes(x = model, y = rmse)) + 
-    geom_violin() +
-  labs(title = "Distribution of RMSE from Cross-Validation", 
-    x = "Model", 
-    y = "RMSE")
-```
-
 #### 10.2 **Outliers in X - Leverage Values**
 
 To determine outliers in X, we use leverage values (diagonal elements h~ii~ of the hat matrix) to measure how far each observation sits from the center of the X space. Observations with high leverage may have an influence on the fitted model's estimated coefficients. Observations with a leverage value 0.2 < h~ii~ < 0.5, will be considered moderate leverage observations. Examining the "hat" plot below, we do not observe any outliers in X. 
