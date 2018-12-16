@@ -12,6 +12,7 @@ library(HH) # For VIF function # or use car::vif(fit_rs)
 library("leaps") # Stepwise and test-based criteria
 library(modelr) # add predictions and cross-validation
 library(caret)
+library(glmnet)
 ```
 
 ###The final model we decided
@@ -73,7 +74,7 @@ best = function(model, ...) {
 } 
 cp_r2_df = best(full, nbest = 1)
 #cp_r2_df %>% as.data.frame() %>% filter(p == 11|p ==12) %>% View()
-cp_r2_df %>% knitr::kable()
+cp_r2_df 
 
 fit_cp = lm(target_death_rate ~ incidence_rate + pop_est2015 + median_age_male + pct_hs18_24 + 
               pct_bach_deg25_over +  pct_unemployed16_over + pct_public_coverage_alone + pct_white + pct_other_race +
@@ -105,4 +106,86 @@ plot(cancer_reg_tidy$pct_other_race, model_7$residuals)
 abline(h=0, lwd=2, col=2)
 plot(cancer_reg_tidy$pct_married_households, model_7$residuals)
 abline(h=0, lwd=2, col=2)
+
+#remove outlier in Y and fit see the changes in Y
 ```
+
+### Ridge
+```{r}
+grid = 10^seq(5,-2, length=100)
+ridge_cancer = 
+  lm.ridge(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over +
+               pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy, lambda = grid)
+dim(coef(ridge_cancer))
+
+#coef for 10^5
+coef(ridge_cancer)[1,]
+
+# coeffcients for 10^-2
+coef(ridge_cancer)[100,]
+```
+
+```{r}
+response = 
+  cancer_reg %>% 
+  dplyr::select(target_death_rate, incidence_rate, median_age_male, pct_hs18_24, pct_bach_deg25_over,
+               pct_public_coverage_alone, pct_other_race, pct_married_households) %>% 
+#  drop_na() %>% 
+  dplyr::select(target_death_rate) %>% 
+  as.matrix()
+
+predictors = 
+  cancer_reg %>% 
+  dplyr::select(target_death_rate, incidence_rate, median_age_male, pct_hs18_24, pct_bach_deg25_over,
+               pct_public_coverage_alone, pct_other_race, pct_married_households) %>% 
+#  drop_na() %>% 
+  dplyr::select(-target_death_rate) %>% 
+  as.matrix()
+
+ridge_cancer_1 = glmnet(predictors, response, alpha = 0, lambda = grid)
+dim(coef(ridge_cancer_1))
+
+ridge_cancer_1$lambda[50] 
+coef(ridge_cancer_1)[,50]
+```
+###Ridge CV
+```{r}
+
+set.seed(1)
+
+cancer_train = sample(1:nrow(predictors),nrow(predictors)/2)
+
+cancer_test = (-cancer_train)
+
+response_test = response[cancer_test]
+
+
+# Use build-in CV function; performs a 10-fold validation by default
+# glmnet() generates it's own lambda sequence
+
+set.seed(2)
+cv_out = cv.glmnet(predictors[cancer_train,], response[cancer_train], alpha=0)
+plot(cv_out)
+
+
+# cv.glmnet() object contains the mean cross-validation error (cvm),
+# lambda min that gives the minimum cvm, etc.
+cv_out
+best_lambda = cv_out$lambda.min
+best_lambda       
+
+
+# Re-fit the model with the min lambda value, look at the coeff and MSE
+#ridge_pred = predict(ridge.cv, s=best_lambda, new_pred = predictors[cancer_test,])
+#mean((ridge_pred - response_test)^2)
+
+
+# Ridge regression using all observations and 'best' lambda
+ridge_pred = glmnet(predictors, response, alpha = 0, lambda = best_lambda)
+
+#Compare LS method and ridge
+compare_ridge_ls = cbind(coef(model_7), coef(ridge_pred))
+colnames(compare_ridge_ls) <- c("LS", "Ridge")
+compare_ridge_ls
+```
+
