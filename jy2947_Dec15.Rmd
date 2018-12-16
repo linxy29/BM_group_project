@@ -1,0 +1,108 @@
+---
+title: "jy2947-Dec15"
+author: "Jiawei Ye"
+date: "December 15, 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(HH) # For VIF function # or use car::vif(fit_rs)
+library("leaps") # Stepwise and test-based criteria
+library(modelr) # add predictions and cross-validation
+library(caret)
+```
+
+###The final model we decided
+```{r from_load_to_model}
+#load
+cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
+  janitor::clean_names() %>%
+  dplyr::select(target_death_rate, everything()) %>%
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
+  mutate(county = str_replace(county, " ", ""))
+
+#exclude variables with a lot missing data, categorical variables and high collinearity variables
+cancer_reg_tidy = 
+  cancer_reg %>% 
+  dplyr::select(-pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, #missing data
+                -county, -state, -binned_inc, -avg_ann_count, -avg_deaths_per_year) %>%   #categorical, colinearity
+  dplyr::select(-med_income, -median_age_female, -pct_emp_priv_coverage, 
+                -pct_public_coverage, -pct_private_coverage,  -poverty_percent, 
+                -pct_hs25_over, -percent_married) %>% #colinearity
+  mutate(pct_nonwhite = 1 - pct_white)
+
+# define full and null sets for forward, backward, both ways search procedures
+null = lm(target_death_rate ~ 1, data = cancer_reg_tidy)
+
+full = lm(target_death_rate ~ ., data = cancer_reg_tidy)
+
+# forward
+step(null, scope = list(lower = null, upper = full), direction = "forward")
+fit_forward = lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + 
+    pct_public_coverage_alone + pct_other_race + pct_white + 
+    pct_hs18_24 + median_age_male + birth_rate + pct_married_households + 
+    pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
+##11 predictor model with 2 not significant, R^2(adj) = 0.4988
+summary(fit_forward) 
+
+# backward
+step(full, data = cancer_reg_tidy, direction="backward")
+fit_backward = lm(formula = target_death_rate ~ incidence_rate + pop_est2015 + 
+    median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + 
+    pct_public_coverage_alone + pct_white + pct_other_race + 
+    pct_married_households + birth_rate, data = cancer_reg_tidy)
+##same model as forward
+
+#both directions
+step(null, scope = list(upper=full), data = cancer_reg_tidy, direction = "both")
+fit_both_dir = lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + 
+    pct_public_coverage_alone + pct_other_race + pct_white + 
+    pct_hs18_24 + median_age_male + birth_rate + pct_married_households + 
+    pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
+##same model as forward, backward
+
+#criterion based
+best = function(model, ...) {
+
+  subsets <- regsubsets(formula(model), nvmax = 19, model.frame(model), ...)
+  subsets <- with(summary(subsets), cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
+  
+  return(subsets)
+} 
+cp_r2_df = best(full, nbest = 1)
+#cp_r2_df %>% as.data.frame() %>% filter(p == 11|p ==12) %>% View()
+cp_r2_df %>% knitr::kable()
+
+fit_cp = lm(target_death_rate ~ incidence_rate + pop_est2015 + median_age_male + pct_hs18_24 + 
+              pct_bach_deg25_over +  pct_unemployed16_over + pct_public_coverage_alone + pct_white + pct_other_race +
+              pct_married_households + birth_rate , data = cancer_reg_tidy)
+##minimum cp model is a 11 predictor model with cp = 6.55, adj R2=0.498808
+
+fit_r2 = lm(target_death_rate ~ incidence_rate + pop_est2015 + median_age_male + pct_hs18_24 + pct_no_hs18_24 +
+              pct_bach_deg25_over +  pct_unemployed16_over + pct_public_coverage_alone + pct_white + pct_other_race +
+              pct_married_households + birth_rate , data = cancer_reg_tidy)
+##maximum adjusted R2 model is a 12 predictor model with cp = 7.5, adj R2 = 0.498817
+
+##The final model based on small increase of adjusted R2 and not too large cp
+#cp_r2_df %>% as.data.frame() %>%  filter(p == 7)
+
+model_7 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over +
+               pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+#residual covariate plot
+plot(cancer_reg_tidy$incidence_rate, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+plot(cancer_reg_tidy$median_age_male, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+plot(cancer_reg_tidy$pct_hs18_24, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+plot(cancer_reg_tidy$pct_bach_deg25_over, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+plot(cancer_reg_tidy$pct_public_coverage_alone, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+plot(cancer_reg_tidy$pct_other_race, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+plot(cancer_reg_tidy$pct_married_households, model_7$residuals)
+abline(h=0, lwd=2, col=2)
+```

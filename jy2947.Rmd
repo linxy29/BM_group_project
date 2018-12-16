@@ -33,12 +33,7 @@ cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
   janitor::clean_names() %>%
   dplyr::select(target_death_rate, everything()) %>%
   separate(geography, into = c("county", "state"), sep = ", ") %>% 
-  mutate(
-    avg_deaths_per_year = as.numeric(avg_deaths_per_year),
-    med_income = as.numeric(med_income),
-    pop_est2015 = as.numeric(med_income),
-    county = str_replace(county, " ", ""),
-    log_med_income = log(med_income))
+  mutate(county = str_replace(county, " ", ""))
 ```
 
 
@@ -84,10 +79,7 @@ cancer_reg = cancer_reg %>%
 # subset based on Apoorva's selection & smoke variable
 # remove state & county
 cancer_reg_subset = cancer_reg %>%
-  dplyr::select(
-    target_death_rate, percent_smoke, incidence_rate, med_income, median_age_male, median_age_female, pct_hs18_24,
-    pct_bach_deg25_over, pct_employed16_over, pct_unemployed16_over, pct_public_coverage_alone, birth_rate, mortality, prevalence,
-    pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage)
+  dplyr::select(-binned_inc, -county, -state)
 ```
 
 ### Final Model Recommend
@@ -108,7 +100,7 @@ summary(fit_parsimony)
 
 ```{r}
 corr_ma = cor(cancer_reg_subset) %>% as.data.frame()
-round(corr_ma, digits = 3) 
+round(corr_ma, digits = 3) %>% View()
 ```
 
 ####correlation matrix in `a` data set
