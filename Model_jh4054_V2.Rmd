@@ -34,7 +34,9 @@ cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
     avg_deaths_per_year = as.numeric(avg_deaths_per_year),
     med_income = as.numeric(med_income),
     pop_est2015 = as.numeric(pop_est2015),
-    county = str_replace(county, " ", ""))
+    county = str_replace(county, " ", "")) %>% 
+  dplyr::select(state, county, everything()) %>% 
+  arrange(target_death_rate, incidence_rate)
 ```
 
 ### 1. Remove Categorical and high proportion missing values
@@ -97,7 +99,8 @@ cancer_reg_tidy = cancer_reg %>%
     -pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state, -avg_ann_count, -avg_deaths_per_year) %>%  
   dplyr::select(
     -median_age_female, -pct_emp_priv_coverage, -pct_public_coverage, -pct_private_coverage, -poverty_percent, -pct_hs25_over, -percent_married, -binned_inc) %>% 
-  mutate(pct_nonwhite = 1 - pct_white)
+  mutate(pct_nonwhite = 1 - pct_white) %>% 
+  arrange(target_death_rate, incidence_rate)
 
 skimr::skim(cancer_reg_tidy)
 ```
@@ -258,7 +261,10 @@ cancer_reg_tidy %>%
 
 ### 5. Final 3 Models & Diagnostics (Check Model Assumptions)
 
-Since all three models satisfied model assumptions
+Since all three models satisfied model assumptions: 
+
+* normality of residuals
+* equal variance 
 
 ```{r}
 # 10 predictor stepwise automatic search model
@@ -296,13 +302,13 @@ par(mfrow = c(2,2))
 plot(fit_r2)
 ```
 
-### 6. Check Model Assumptions 
-
-### 7. N-Fold Cross Validation
+### 7. N-Fold Cross Validation & Violin Plots
 
 ```{r}
+# create training and testing sets, 100 fold cross-validation, 80/20 split
 cv_cm = modelr::crossv_mc(data = cancer_reg_tidy, n = 100, test = 0.2, id = "id")
 
+# 
 cv_cm = cv_cm %>% 
   mutate(lm_auto = map(train, ~lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = .x)),
          lm_cp = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = .x)),
@@ -313,6 +319,15 @@ cv_cm = cv_cm %>%
 ```
 
 ```{r}
+# experimental values for RMSE will vary each time we rerun code
+cv_cm %>% 
+  dplyr::select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  group_by(model) %>% 
+  summarise(mean_rmse = mean(rmse),
+            var_rmse = var(rmse))
+
+# Violin Plots
 cv_cm %>% 
   dplyr::select(starts_with("rmse")) %>% 
   gather(key = model, value = rmse) %>% 
@@ -326,9 +341,217 @@ cv_cm %>%
     y = "RMSE")
 ```
 
-### 7.
+### 8. K-Fold Cross validation
+
 ```{r}
+model_10 = lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
+
+model_9 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
+
+model_7 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+```
+
+### 8.1. 10-fold CV
+
+```{r}
+library(caret)
+train_data_10 = caret::trainControl(method = "cv", number = 10)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret10_10 = 
+  caret::train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_9 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_7 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_10 
+#  RMSE     Rsquared   MAE     
+#  19.7024  0.4938789  14.68475
+
+model_caret10_9
+#  RMSE      Rsquared   MAE     
+#  19.68147  0.4967687  14.66503
+
+model_caret10_7
+#  RMSE      Rsquared   MAE     
+#  19.79374  0.4900993  14.82677
 
 ```
 
+### 8.2. 5-fold cv
 
+```{r}
+train_data_5 = caret::trainControl(method = "cv", number = 5)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret5_10 = 
+  caret::train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_9 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_7 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_10 
+#  RMSE      Rsquared   MAE     
+#  19.70115  0.4967758  14.65786
+
+model_caret5_9
+#  RMSE      Rsquared   MAE     
+#  19.69373  0.4956894  14.66347
+
+model_caret5_7
+#  RMSE      Rsquared   MAE     
+#  19.82486  0.4890669  14.84762
+```
+
+Since three models have similar performance in cross validation, based on 'principle of parsimony', we chose model with 7 predictors.
+
+Final model: `lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)`
+
+### 9. Remove one outlier in y
+```{r}
+cancer_reg_remove = 
+  cancer_reg_tidy %>% 
+  filter(target_death_rate < 300)
+
+model_remove = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_remove)
+
+summary(model_remove)
+
+par(mfrow = c(2, 2))
+plot(fit_r2)
+```
+
+### 10. Examine Leverage & Influential points
+
+#### 10.1 **Outliers in Y - Studentized Residuals**
+
+We use internally studentized residuals to quantify the magnitude of residuals in standard deviation unit. As a rule of thumb, an observation with |r~i~| > 2.5 may be considered an outlier in Y. 
+
+The following points are extreme outliers in y with |r~i~| > 5.0:
+
+* 802 - Williamsburg County, Virginia - NIH reported Incidence Rate for all cancers in Williamsburg County, Virginia, averaged across 2011-2015, is 376.2 per 100,000 (95% CI: 314.6, 447.3). However our dataset has incidence rate at 1014 per 100,000. **Steps**: exclude datapoint. Predicted mortality rate 265.0524, actual mortality rate it 162.1, residual -102.9524
+* 3044 - Madison County, Mississippi
+* 3046 - Woodson County, Kansas
+
+```{r}
+# add predictions & residuals for 7 predictor model to dataset
+# df below used to examine state and county for outliers in y. 
+cancer_reg_pred_resid = cancer_reg %>% 
+  dplyr::select(
+    state, county, target_death_rate, incidence_rate, median_age_male, pct_hs18_24, pct_bach_deg25_over, pct_private_coverage, pct_public_coverage_alone, pct_other_race, pct_married_households) %>% 
+  modelr::add_predictions(fit_r2, var = "pred_model_7") %>% 
+  modelr::add_residuals(fit_r2, var = "resid_model_7") %>% 
+  arrange(target_death_rate, incidence_rate)
+
+# rstandard function gives the INTERNALLY studentized residuals 
+stu_res = rstandard(fit_r2)
+# 68 points with student residuals > 2.5
+stu_res[abs(stu_res) > 2.5]
+# 3 points with student residuals > 5
+stu_res[abs(stu_res) > 5]
+
+# test remove point 802: Williamsburg County, Virginia
+# no substantial change in coefficients. 
+cancer_reg_remove = 
+  cancer_reg_tidy %>% 
+  filter(incidence_rate != 1014.2)
+
+model_remove = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_remove)
+
+summary(model_remove)
+```
+
+# Test cross validation for removed outlier 802
+```{r}
+# create training and testing sets, 100 fold cross-validation, 80/20 split
+cv_cm_remove = modelr::crossv_mc(data = cancer_reg_remove, n = 100, test = 0.2, id = "id")
+
+# 
+cv_cm_remove = cv_cm_remove %>% 
+  mutate(lm_auto = map(train, ~lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = .x)),
+         lm_cp = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = .x)),
+         lm_r2 = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = .x))) %>% 
+  mutate(rmse_auto = map2_dbl(lm_auto, test, ~rmse(model = .x, data = .y)),
+         rmse_cp = map2_dbl(lm_cp, test, ~rmse(model = .x, data = .y)),
+         rmse_r2 = map2_dbl(lm_r2, test, ~rmse(model = .x, data = .y)))
+```
+
+```{r}
+# experimental values for RMSE will vary each time we rerun code
+cv_cm_remove %>% 
+  dplyr::select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  group_by(model) %>% 
+  summarise(mean_rmse = mean(rmse),
+            var_rmse = var(rmse))
+
+# Violin Plots
+cv_cm_remove %>% 
+  dplyr::select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  mutate(
+    model = str_replace(model, "rmse_", "model "),
+    model = fct_reorder(model, rmse)) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+    geom_violin() +
+  labs(title = "Distribution of RMSE from Cross-Validation", 
+    x = "Model", 
+    y = "RMSE")
+```
+
+#### 10.2 **Outliers in X - Leverage Values**
+
+To determine outliers in X, we use leverage values (diagonal elements h~ii~ of the hat matrix) to measure how far each observation sits from the center of the X space. Observations with high leverage may have an influence on the fitted model's estimated coefficients. Observations with a leverage value 0.2 < h~ii~ < 0.5, will be considered moderate leverage observations. Examining the "hat" plot below, we do not observe any outliers in X. 
+```{r}
+# Obtain DFFITS, Cook's Distance, Hat diagonal elements.
+influence_measures = influence.measures(fit_r2)
+
+# plot of hat values and extract hat values above 0.2.
+lev = hat(model.matrix(fit_r2))
+plot(lev)
+# command returns all observations with leverage values above 0.2
+cancer_reg_tidy[lev > 0.2,]
+```
+
+#### 10.3 **Influential Points - Cook's Distance**
+
+After identifying the outliers in Y (points 802, 3044, 3046), we will use Cook's distance measures to determine if they are influential. Applying **Cook's distance** criteria, an observation can be influential if it has a high residual and high h~ii~. As a rule of thumb, a D~i~ > 0.5 in R is of concern. Examination of the Cook's distance reveals that none of the y-outliers 802 (red), 3044 (blue), or 3046 (green) met the criteria as influential points. As such, we will not take further actions to remove Y outliers from our dataset. 
+
+```{r}
+# plot Cook's distance for fit_r2 7-predictor model 
+cook = cooks.distance(fit_r2)
+plot(cook,ylab = "Cooks distances")
+points(802,cook[802],col = 'red')
+points(3044,cook[3044],col = 'blue')
+points(3046,cook[3046],col = 'green')
+```
