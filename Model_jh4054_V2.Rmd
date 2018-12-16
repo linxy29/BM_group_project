@@ -214,12 +214,12 @@ par(mar = c(4,4,1,1))
 par(mfrow = c(1,2))
 
 # Cp Statistic Plot 
-plot(x = 1:18, y = crit_sum$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+plot(x = 1:19, y = crit_sum$cp, xlab = "No of parameters", ylab = "Cp Statistic")
 # abline - adds straight lines to a plot
 abline(0,1)
 
 # Adjusted R2 Plot
-plot(x = 1:18, y = crit_sum$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+plot(x = 1:19, y = crit_sum$adjr2, xlab = "No of parameters", ylab = "Adj R2")
 ```
 
 **Summary Table for Cp Statistic and Adjusted R2**
@@ -290,6 +290,8 @@ car::vif(fit_r2) # VIF values
 par(mfrow = c(2,2))
 plot(fit_r2)
 ```
+
+
 
 ### 7. N-Fold Cross Validation & Violin Plots
 
