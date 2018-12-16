@@ -246,15 +246,20 @@ cancer_reg_tidy %>%
   geom_point()
 ```
 
-### 5. Final 3 Models
+### 5. Final 3 Models & Diagnostics (Check Model Assumptions)
+
+Since all three models satisfied model assumptions
 
 ```{r}
 # 10 predictor stepwise automatic search model
 # Adjusted R-squared:  0.4986
-fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+fit_auto = lm(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate + pct_public_coverage_alone + 
     pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
 
 summary(fit_auto)
+
+par(mfrow = c(2,2))
+plot(fit_auto)
 
 # 9 predictor cp model
 # Adjusted R-squared:  0.4983 
@@ -262,14 +267,22 @@ fit_cp = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 +
 
 summary(fit_cp)
 
+par(mfrow = c(2,2))
+plot(fit_cp)
+
 # 7 predictor adjusted R2 model
 # Adjusted R-squared:  0.4927 
 fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
 
 summary(fit_r2)
+
+par(mfrow = c(2,2))
+plot(fit_r2)
 ```
 
-### 6. N-Fold Cross Validation
+### 6. Check Model Assumptions 
+
+### 7. N-Fold Cross Validation
 
 ```{r}
 cv_cm = modelr::crossv_mc(data = cancer_reg_tidy, n = 100, test = 0.2, id = "id")
@@ -297,6 +310,9 @@ cv_cm %>%
     y = "RMSE")
 ```
 
+### 7.
+```{r}
 
+```
 
 
