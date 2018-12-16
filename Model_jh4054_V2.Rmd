@@ -267,32 +267,31 @@ fit_auto = lm(target_death_rate ~ log(pct_bach_deg25_over) + incidence_rate + pc
     pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
 
 summary(fit_auto)
+car::vif(fit_auto) 
 
 par(mfrow = c(2,2))
 plot(fit_auto)
 
+##########
 # 9 predictor cp model
 # Adjusted R-squared:  0.4983 
 fit_cp = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
 
 summary(fit_cp)
+car::vif(fit_cp) # VIF values
 
 par(mfrow = c(2,2))
 plot(fit_cp)
 
+##########
 # 7 predictor adjusted R2 model
 # Adjusted R-squared:  0.4927 
 fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
 
 summary(fit_r2)
+car::vif(fit_r2) # VIF values
 
-par(mfrow = c(2,2))
-plot(fit_r2)
-
-fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_black + pct_asian + pct_married_households + pct_nonwhite, data = cancer_reg_tidy)
-
-summary(fit_r2)
-
+# Diagnostic plots
 par(mfrow = c(2,2))
 plot(fit_r2)
 ```
