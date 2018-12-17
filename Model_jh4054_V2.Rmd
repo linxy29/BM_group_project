@@ -177,10 +177,7 @@ target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_a
 # stepwise regression, both directions
 step(null, scope = list(upper=full), data = cancer_reg_tidy, direction = "both")
 
-fit_both_dir = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
-    pct_other_race + pct_white + pct_hs18_24 + median_age_male + 
-    birth_rate + pct_married_households + pct_unemployed16_over + 
-    pop_est2015, data = cancer_reg_tidy)
+fit_both_dir = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
 
 summary(fit_both_dir)
 car::vif(fit_both_dir)
@@ -188,11 +185,10 @@ car::vif(fit_both_dir)
 
 **Conclusion**
 
-Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 11-predictors, using the AIC criterion. The model has Adjusted R-squared: 0.4988; however, pop_est is not significant at the alpha = 0.10 level. As such, we will move forward with a 10-predictor candidate model from automatic search procedures.
+Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 11-predictors, using the AIC criterion. The model has Adjusted R-squared: 0.4988. 
 
 ```{r}
-fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
-    pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
+fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
 
 summary(fit_auto)
 ```
@@ -520,5 +516,18 @@ fit_final %>% broom::tidy(conf.int = TRUE) %>%
     "95% CI lower" = conf.low, 
     "95% CI upper" = conf.high) %>% 
   knitr::kable(digits = 3)
+```
+
+### IGNORE 
+
+```{r}
+poverty_fit = lm(poverty_percent ~ pct_public_coverage_alone, data = cancer_reg)
+summary(poverty_fit)
+
+education_fit = lm(pct_hs18_24 ~ pct_bach_deg25_over, data = cancer_reg)
+summary(education_fit)
+
+insurance_fit = lm(pct_private_coverage ~ pct_public_coverage_alone, data = cancer_reg)
+summary(insurance_fit)
 ```
 
