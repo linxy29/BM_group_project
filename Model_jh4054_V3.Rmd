@@ -1,0 +1,558 @@
+---
+title: "Model_jh4054"
+author: "Joy Hsu, Xinyi Lin, Matt Parker, Apoorva Srinivasan, Jiawei Ye"
+date: "12/7/2018"
+output: 
+    html_document:
+      toc: true
+      toc_float: true
+      toc_depth: 6
+      code_folding: show
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  message = FALSE,
+  warning = FALSE)
+
+library(tidyverse)
+library(HH) # For VIF function # or use car::vif(fit_rs)
+library(leaps) # Stepwise and test-based criteria
+library(modelr) # add predictions and cross-validation
+```
+
+### Load Main dataset
+
+```{r}
+cancer_reg = read_csv("./data/Cancer_Registry.csv") %>%
+  janitor::clean_names() %>%
+  dplyr::select(target_death_rate, everything()) %>%
+  separate(geography, into = c("county", "state"), sep = ", ") %>% 
+  mutate(
+    avg_deaths_per_year = as.numeric(avg_deaths_per_year),
+    med_income = as.numeric(med_income),
+    pop_est2015 = as.numeric(pop_est2015),
+    county = str_replace(county, " ", "")) %>% 
+  dplyr::select(state, county, everything()) %>% 
+  arrange(target_death_rate, incidence_rate)
+```
+
+### 1. Remove Categorical and high proportion missing values
+
+* Remove state and county - catergorical parameters related to observations
+* Remove avg_ann_count and avg_deaths_per_year, since this data is already captured in mortality rate and incidence, weighted by county population. 
+* Remove variables with high percentage missing values:
+    * pct_employed16_over - 152 missing. This variable has some collinearity with pct_unemployed16_over (R = -0.65), so we are not completely excluding information related to employment. 
+    * pct_some_col18_24 - 2285 missing. Over 2/3 missing values.
+    * pct_private_coverage_alone - 609 missing. Since this variable has strong collinearity with pct_private_coverage (R = 0.93), so we are not excluding valuable information on insurance coverage
+
+```{r}
+# Examine missing values
+# 3 variables with high missing: values pct_employed16_over (152), pct_some_col18_24 (2285), pct_private_coverage_alone (609)
+skimr::skim(cancer_reg)
+
+# observe collinearity between pct_private_coverage and variable to exclude, pct_private_coverage_alone
+cancer_reg %>% 
+  dplyr::select(target_death_rate, pct_private_coverage, pct_private_coverage_alone) %>% cor(x = ., use = "pairwise.complete.obs")
+
+# observe collinearity between pct_unemployed16_over and variable to exclude, pct_employed16_over
+cancer_reg %>% 
+  dplyr::select(target_death_rate, pct_unemployed16_over, pct_employed16_over) %>% cor(x = ., use = "pairwise.complete.obs")
+
+# remove variables with high missing values, county and state
+cancer_reg_tidy = cancer_reg %>% 
+  dplyr::select(-pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state, -avg_ann_count, -avg_deaths_per_year)
+```
+
+### 2. Remove Variables with high Collinearity
+
+Next, we will examine collinearity between remaining variables. Remove the following:
+
+* remove bin_income, since we will use med_income to look at income
+* remove poverty_percent, due to high collinearity with med_income (r = -0.78). We will keep median income as potential covariate for income status
+* percent_married - collinearity with pct_married_households (r = 0.87)
+* pct_hs25_over - collinearity with pct_bach_deg25_over (r = -0.74)
+* median_age_female - high collinearity with median age male (r = 0.93)
+* Only keep "pct_public_coverage_alone" - out of all insurance status variables, this has highest correlation with main outcome. High collinearity between between all insurance variables. 
+
+* med_income - collinearity with multiple variables related to education attainment and insurance coverage: pct_bach_deg25_over, pct_private_coverage, pct_emp_priv_coverage, pct_public_coverage, pct_public_coverage_alone
+
+Other variables of consideration.
+* pct_white and pct_black has high collinearity (-0.83), but from a demographic standpoint, we may be interested in keeping both. 
+* discuss why pct_black and pct_white has such negative correlation in report
+
+We are left with 21 variables
+```{r}
+# Examine collinearity between variables
+cor_df = cancer_reg_tidy %>%
+  dplyr::select(-binned_inc) %>% 
+  cor()
+
+# remove collinear variables
+# remove variables due to missing values
+# remove variables due to collinearity
+# create proxy variable pct_nonwhite
+cancer_reg_tidy = cancer_reg %>% 
+  dplyr::select(
+    -pct_employed16_over, -pct_some_col18_24, -pct_private_coverage_alone, -county, -state, -avg_ann_count, -avg_deaths_per_year) %>%  
+  dplyr::select(
+    -binned_inc, -poverty_percent, -percent_married, -pct_hs25_over, -median_age_female, -pct_emp_priv_coverage, -pct_public_coverage, -pct_private_coverage) %>% 
+  arrange(target_death_rate, incidence_rate)
+
+skimr::skim(cancer_reg_tidy)
+```
+
+### 3. Automatic Search Procedures
+
+Stepwise regression uses the AIC criterion for variable selection. Given a set of candidate models for the data, we prefer the model with the minimum AIC value. AIC rewards goodness of fit (as assessed by the likelihood function), but AIC also includes a penalty that is a function of number of parameters. 
+
+```{r}
+# define full and null sets for forward, backward, both ways search procedures
+null = lm(target_death_rate ~ 1, data = cancer_reg_tidy)
+
+full = lm(target_death_rate ~ ., data = cancer_reg_tidy)
+```
+
+**Forward Selection Model**
+
+Adjusted R-squared:  0.4988
+
+Step:  AIC=18159.34
+
+target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015
+
+```{r, warning=TRUE, error=TRUE}
+# stepwise regression, forward
+step(null, scope = list(lower = null, upper = full), direction = "forward")
+
+# forward fit
+fit_forward = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + 
+    pct_other_race + pct_white + pct_hs18_24 + median_age_male + 
+    birth_rate + pct_married_households + pct_unemployed16_over + 
+    pop_est2015, data = cancer_reg_tidy)
+
+summary(fit_forward)
+car::vif(fit_forward)
+```
+
+**Backward Elimination Model**
+
+Adjusted R-squared:  0.4988
+
+Step:  AIC=18159.34
+
+target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015
+
+```{r, error=TRUE}
+# stepwise regression, backward
+step(full, data = cancer_reg_tidy, direction = "backward")
+
+# backward fit
+fit_back = lm(target_death_rate ~ incidence_rate + pop_est2015 + median_age_male + 
+    pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + 
+    pct_public_coverage_alone + pct_white + pct_other_race + 
+    pct_married_households + birth_rate, data = cancer_reg_tidy)
+
+summary(fit_back)
+car::vif(fit_back)
+```
+
+**Stepwise Regression, Both Directions**
+
+Same 10 predictor output as forwards and backwards
+
+Adjusted R-squared:  0.4988
+
+Step:  AIC=18159.34
+
+target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015
+
+```{r}
+# stepwise regression, both directions
+step(null, scope = list(upper=full), data = cancer_reg_tidy, direction = "both")
+
+fit_both_dir = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
+
+summary(fit_both_dir)
+car::vif(fit_both_dir)
+```
+
+**Conclusion**
+
+Automatic Search Procedures using forward & backward selection, stepwise regression generated the same "best model" with 11-predictors, using the AIC criterion. The model has Adjusted R-squared: 0.4988. 
+
+```{r}
+fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
+
+summary(fit_auto)
+```
+
+### 4. Criterion Based Procedures
+
+**Best subsets regression procedure with Mallows’ Cp and Adjusted R2 Criterion**
+
+* For Mallow's Cp-statistic, the Cp Statistic should be less than or equal to the # of parameters. Optimizing for lowest Cp Statistic, we select 9 predictors
+* For R^2(adj) criteria, we optimize for highest R^2(adj), while accounting for parsimony. Selecting ~7 predictors optimizes both the R^2(adj) criterion and overarching goal for parsimony.
+
+```{r}
+criterion = leaps::regsubsets(target_death_rate ~ ., data = cancer_reg_tidy, nvmax = 19)
+crit_sum = summary(criterion)
+summary(criterion)
+
+# Plots for Cp Statistic and Adjusted R2
+par(mar = c(4,4,1,1))
+par(mfrow = c(1,2))
+
+# Cp Statistic Plot 
+plot(x = 1:19, y = crit_sum$cp, xlab = "No of parameters", ylab = "Cp Statistic")
+# abline - adds straight lines to a plot
+abline(0,1)
+
+# Adjusted R2 Plot
+plot(x = 1:19, y = crit_sum$adjr2, xlab = "No of parameters", ylab = "Adj R2")
+```
+
+**Summary Table for Cp Statistic and Adjusted R2**
+```{r}
+# fit with all parameters
+fit_multi = lm(target_death_rate ~ ., data = cancer_reg_tidy)
+
+# best subset of variables for given number of parameters
+best = function(model, ...) {
+
+  subsets <- regsubsets(formula(model), nvmax = 20, model.frame(model), ...)
+  subsets <- with(summary(subsets), cbind(p = as.numeric(rownames(which)), which, rss, rsq, adjr2, cp, bic))
+  
+  return(subsets)
+}  
+
+# Select the 'best' model of all subsets for 8-predictor model
+cp_r2_df = round(best(fit_multi, nbest = 1), digits = 3)
+cp_r2_df
+```
+
+### 5. Final 3 Models & Diagnostics (Check Model Assumptions)
+
+Three models satisfied model assumptions: 
+
+* homoscadasticity of residuals - Residuals vs. Fitted Values plot
+* normality of residuals - Normal Q-Q Plots
+
+```{r}
+# 11 predictor stepwise automatic search model
+# Adjusted R-squared:  0.4988
+fit_auto = lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over + pop_est2015, data = cancer_reg_tidy)
+
+summary(fit_auto)
+car::vif(fit_auto) 
+
+par(mfrow = c(2,2))
+plot(fit_auto)
+
+##########
+# 9 predictor cp model
+# Adjusted R-squared:  0.4983 
+fit_cp = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
+
+summary(fit_cp)
+car::vif(fit_cp) # VIF values
+
+par(mfrow = c(2,2))
+plot(fit_cp)
+
+##########
+# 7 predictor adjusted R2 model
+# Adjusted R-squared:  0.4927 
+fit_r2 = lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+
+summary(fit_r2)
+car::vif(fit_r2) # VIF values
+
+# Diagnostic plots
+par(mfrow = c(2,2))
+plot(fit_r2)
+```
+
+### 6. Outlier in Observed y-values
+
+Union County, Florida has the highest cancer mortality rate of all counties. 
+```{r}
+cancer_reg_remove = 
+  cancer_reg_tidy %>% 
+  filter(target_death_rate < 300)
+
+model_remove = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_remove)
+
+summary(fit_r2)
+summary(model_remove)
+
+par(mfrow = c(2, 2))
+plot(model_remove)
+```
+
+### 6. Examine Leverage & Influential points
+
+#### 6.1 **Outliers in Y - Studentized Residuals**
+
+We use internally studentized residuals to quantify the magnitude of residuals in standard deviation unit. As a rule of thumb, an observation with |r~i~| > 2.5 may be considered an outlier in Y. 
+
+The following points are extreme outliers in y with |r~i~| > 5.0:
+
+* 802 - Williamsburg County, Virginia - NIH reported Incidence Rate for all cancers in Williamsburg County, Virginia, averaged across 2011-2015, is 376.2 per 100,000 (95% CI: 314.6, 447.3). However our dataset has incidence rate at 1014 per 100,000. **Steps**: exclude datapoint. Predicted mortality rate 265.0524, actual mortality rate it 162.1, residual -102.9524
+* 3044 - Madison County, Mississippi
+* 3046 - Woodson County, Kansas
+
+```{r}
+# add predictions & residuals for 7 predictor model to dataset
+# df below used to examine state and county for outliers in y. 
+cancer_reg_pred_resid = cancer_reg %>% 
+  dplyr::select(
+    state, county, target_death_rate, incidence_rate, median_age_male, pct_hs18_24, pct_bach_deg25_over, pct_private_coverage, pct_public_coverage_alone, pct_other_race, pct_married_households) %>% 
+  modelr::add_predictions(fit_r2, var = "pred_model_7") %>% 
+  modelr::add_residuals(fit_r2, var = "resid_model_7") %>% 
+  arrange(target_death_rate, incidence_rate)
+
+# rstandard function gives the INTERNALLY studentized residuals 
+stu_res = rstandard(fit_r2)
+# 68 points with student residuals > 2.5
+stu_res[abs(stu_res) > 2.5]
+# 3 points with student residuals > 5
+stu_res[abs(stu_res) > 5]
+
+# test remove point 802: Williamsburg County, Virginia
+# no substantial change in coefficients. 
+cancer_reg_remove = 
+  cancer_reg_tidy %>% 
+  filter(incidence_rate != 1014.2)
+
+model_remove = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_remove)
+
+# compare model output for removal of Williamsburg County, Virginia
+summary(model_remove)
+summary(fit_r2)
+```
+
+#### 6.2 **Outliers in X - Leverage Values**
+
+To determine outliers in X, we use leverage values (diagonal elements h~ii~ of the hat matrix) to measure how far each observation sits from the center of the X space. Observations with high leverage may have an influence on the fitted model's estimated coefficients. Observations with a leverage value 0.2 < h~ii~ < 0.5, will be considered moderate leverage observations. Examining the "hat" plot, we do not observe any outliers in X. 
+
+Nonetheless, the point with the highest leverage is Union County, Florida (point 3047), with the highest target death rate at 362.8. Since point 3047 follows the trend of the remaining data, it is neither influential nor an outlier, however the data point does have high influence. 
+```{r}
+# Obtain DFFITS, Cook's Distance, Hat diagonal elements.
+influence_measures = influence.measures(fit_r2)
+
+# plot of hat values and extract hat values above 0.2.
+lev = hat(model.matrix(fit_r2))
+plot(lev)
+# command returns all observations with leverage values above 0.2
+cancer_reg_tidy[lev > 0.2,]
+# examine point with highest leverage
+cancer_reg_tidy[lev > 0.06,]
+```
+
+#### 6.3 **Influential Points - Cook's Distance**
+
+After identifying the outliers in Y (points 802, 3044, 3046), we will use Cook's distance measures to determine if they are influential. Applying **Cook's distance** criteria, an observation can be influential if it has a high residual and high h~ii~. As a rule of thumb, a D~i~ > 0.5 in R is of concern. Examination of the Cook's distance reveals that none of the y-outliers 802 (red), 3044 (blue), or 3046 (green) met the criteria as influential points. As such, we will not take further actions to remove Y outliers from our dataset. 
+
+```{r}
+# plot Cook's distance for fit_r2 7-predictor model 
+cook = cooks.distance(fit_r2)
+plot(cook,ylab = "Cooks distances")
+points(802,cook[802],col = 'red')
+points(3044,cook[3044],col = 'blue')
+points(3046,cook[3046],col = 'green')
+points(3047,cook[3047],col = 'pink')
+```
+
+### 7. N-Fold Cross Validation & Violin Plots
+
+```{r}
+# create training and testing sets, 100 fold cross-validation, 80/20 split
+cv_cm = modelr::crossv_mc(data = cancer_reg_tidy, n = 100, test = 0.2, id = "id")
+
+# 
+cv_cm = cv_cm %>% 
+  mutate(lm_auto = map(train, ~lm(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = .x)),
+         lm_cp = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = .x)),
+         lm_r2 = map(train, ~lm(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = .x))) %>% 
+  mutate(rmse_auto = map2_dbl(lm_auto, test, ~rmse(model = .x, data = .y)),
+         rmse_cp = map2_dbl(lm_cp, test, ~rmse(model = .x, data = .y)),
+         rmse_r2 = map2_dbl(lm_r2, test, ~rmse(model = .x, data = .y)))
+```
+
+```{r}
+# experimental values for RMSE will vary each time we rerun code
+cv_cm %>% 
+  dplyr::select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  group_by(model) %>% 
+  summarise(mean_rmse = mean(rmse),
+            var_rmse = var(rmse))
+
+# Violin Plots
+cv_cm %>% 
+  dplyr::select(starts_with("rmse")) %>% 
+  gather(key = model, value = rmse) %>% 
+  mutate(
+    model = str_replace(model, "rmse_", "model "),
+    model = fct_reorder(model, rmse)) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+    geom_violin() +
+  labs(title = "Distribution of RMSE from Cross-Validation", 
+    x = "Model", 
+    y = "RMSE")
+```
+
+### 8. K-Fold Cross validation
+
+```{r}
+model_10 = lm(formula = target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, data = cancer_reg_tidy)
+
+model_9 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, data = cancer_reg_tidy)
+
+model_7 = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+```
+
+### 8.1. 10-fold CV
+
+```{r}
+library(caret)
+train_data_10 = caret::trainControl(method = "cv", number = 10)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret10_10 = 
+  caret::train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_9 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_7 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, 
+    data = cancer_reg_tidy,
+    trControl = train_data_10,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret10_10 
+#  RMSE     Rsquared   MAE     
+#  19.7024  0.4938789  14.68475
+
+model_caret10_9
+#  RMSE      Rsquared   MAE     
+#  19.68147  0.4967687  14.66503
+
+model_caret10_7
+#  RMSE      Rsquared   MAE     
+#  19.79374  0.4900993  14.82677
+
+```
+
+### 8.2. 5-fold cv
+
+```{r}
+train_data_5 = caret::trainControl(method = "cv", number = 5)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret5_10 = 
+  caret::train(target_death_rate ~ pct_bach_deg25_over + incidence_rate + pct_public_coverage_alone + pct_other_race + pct_white + pct_hs18_24 + median_age_male + birth_rate + pct_married_households + pct_unemployed16_over, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_9 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_unemployed16_over + pct_public_coverage_alone + pct_other_race + pct_married_households + birth_rate, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_7 = 
+  caret::train(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 + pct_public_coverage_alone + pct_other_race + pct_married_households, 
+    data = cancer_reg_tidy,
+    trControl = train_data_5,
+    method = 'lm',
+    na.action = na.pass)
+
+model_caret5_10 
+#  RMSE      Rsquared   MAE     
+#  19.70115  0.4967758  14.65786
+
+model_caret5_9
+#  RMSE      Rsquared   MAE     
+#  19.69373  0.4956894  14.66347
+
+model_caret5_7
+#  RMSE      Rsquared   MAE     
+#  19.82486  0.4890669  14.84762
+```
+
+Since three models have similar performance in cross validation, based on 'principle of parsimony', we chose model with 7 predictors.
+
+### 9. Final Model
+
+Final model: `lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)`
+
+```{r}
+fit_final = lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)
+
+summary(fit_final)
+
+# Final Model Coefficients
+fit_final %>% broom::tidy(conf.int = TRUE) %>% 
+  dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>% 
+  rename(
+    "beta1 estimates" = estimate, 
+    "95% CI lower" = conf.low, 
+    "95% CI upper" = conf.high) %>% 
+  knitr::kable(digits = 3)
+```
+
+### 10. Supplementary Code
+
+Supplementary code used to generate values for the report. 
+
+```{r}
+poverty_fit = lm(poverty_percent ~ pct_public_coverage_alone, data = cancer_reg)
+summary(poverty_fit)
+
+education_fit = lm(pct_hs18_24 ~ pct_bach_deg25_over, data = cancer_reg)
+summary(education_fit)
+
+insurance_fit = lm(pct_private_coverage ~ pct_public_coverage_alone, data = cancer_reg)
+summary(insurance_fit)
+```
+
+#### Figure 1. Variables used in Model Selection - Descriptive Statistics
+
+```{r, echo=FALSE}
+skimr::skim_to_list(cancer_reg_tidy) %>% knitr::kable()
+```
+
+#### Figure 2. 
+
+#### Figure 3. RMSE Table 
+
+#### Figure 4. Final Model Coefficients
+
+```{r}
+# Final Model Coefficients
+fit_r2 %>% broom::tidy(conf.int = TRUE) %>% 
+  dplyr::select(term, estimate, conf.low, conf.high, std.error, p.value) %>% 
+  rename(
+    "coef estimates" = estimate, 
+    "95% CI lower" = conf.low, 
+    "95% CI upper" = conf.high) %>% 
+  knitr::kable(digits = 3)
+```
+
