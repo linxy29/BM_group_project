@@ -1,6 +1,6 @@
 ---
 title: "Model_jh4054"
-author: "Joy Hsu"
+author: "Joy Hsu, Xinyi Lin, Matt Parker, Apoorva Srinivasan, Jiawei Ye"
 date: "12/7/2018"
 output: 
     html_document:
@@ -596,8 +596,6 @@ compare_ridge_ls
 
 ```
 
-
-
 ### 10. Final Model
 
 Final model: `lm(formula = target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over + pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy)`
@@ -615,7 +613,9 @@ fit_final %>% broom::tidy(conf.int = TRUE) %>%
   knitr::kable(digits = 3)
 ```
 
-### IGNORE 
+### 11. Supplementary Code
+
+Supplementary code used to generate values for the report. 
 
 ```{r}
 poverty_fit = lm(poverty_percent ~ pct_public_coverage_alone, data = cancer_reg)
@@ -627,4 +627,3 @@ summary(education_fit)
 insurance_fit = lm(pct_private_coverage ~ pct_public_coverage_alone, data = cancer_reg)
 summary(insurance_fit)
 ```
-
