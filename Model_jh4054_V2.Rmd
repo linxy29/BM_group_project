@@ -388,6 +388,7 @@ points(3046,cook[3046],col = 'green')
 ### 7. N-Fold Cross Validation & Violin Plots
 
 ```{r}
+set.seed(20)
 # create training and testing sets, 100 fold cross-validation, 80/20 split
 cv_cm = modelr::crossv_mc(data = cancer_reg_tidy, n = 100, test = 0.2, id = "id")
 
@@ -522,7 +523,7 @@ Since three models have similar performance in cross validation, based on 'princ
 ```{r}
 grid = 10^seq(5,-2, length=100)
 ridge_cancer = 
-  lm.ridge(target_death_rate ~ incidence_rate + median_age_male + pct_hs18_24 + pct_bach_deg25_over +
+  lm.ridge(target_death_rate ~ incidence_rate + median_age_male + pct_bach_deg25_over + pct_hs18_24 +
                pct_public_coverage_alone + pct_other_race + pct_married_households, data = cancer_reg_tidy, lambda = grid)
 dim(coef(ridge_cancer))
 
@@ -536,7 +537,7 @@ coef(ridge_cancer)[100,]
 ```{r}
 response = 
   cancer_reg %>% 
-  dplyr::select(target_death_rate, incidence_rate, median_age_male, pct_hs18_24, pct_bach_deg25_over,
+  dplyr::select(target_death_rate, incidence_rate, median_age_male, pct_bach_deg25_over, pct_hs18_24, 
                pct_public_coverage_alone, pct_other_race, pct_married_households) %>% 
 #  drop_na() %>% 
   dplyr::select(target_death_rate) %>% 
@@ -544,7 +545,7 @@ response =
 
 predictors = 
   cancer_reg %>% 
-  dplyr::select(target_death_rate, incidence_rate, median_age_male, pct_hs18_24, pct_bach_deg25_over,
+  dplyr::select(target_death_rate, incidence_rate, median_age_male, pct_bach_deg25_over, pct_hs18_24,
                pct_public_coverage_alone, pct_other_race, pct_married_households) %>% 
 #  drop_na() %>% 
   dplyr::select(-target_death_rate) %>% 
